@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 476" width="760" height="476" role="img" aria-label="薪跳 SalaryDance 界面结构示意图">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 620" width="760" height="620" role="img" aria-label="薪跳 SalaryDance 界面结构示意图">
   <title>薪跳 SalaryDance 界面结构示意图</title>
-  <desc>左侧是常驻右上角的悬浮卡片：今日入账、已工作、距离下班、今日预计和工作进度。右侧是点开后三步设置面板：薪资模式、工作时间、使用偏好。</desc>
+  <desc>左侧是常驻右上角的悬浮卡片：今日入账、已工作、距离下班、今日预计、工作进度、当前时薪与本月预计。右侧是点开后三步设置面板：薪资模式（含按月实际工作日折算的时薪）、工作时间（含滚动时间选择器）、使用偏好。</desc>
 
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
@@ -21,149 +21,156 @@
       .val { font-size: 12.5px; font-weight: 600; fill: #16181d; }
       .ttl { font-size: 13px; font-weight: 600; fill: #16181d; }
       .tn  { font-size: 11.5px; fill: #4a505a; }
-      .wn  { font-size: 11.5px; font-weight: 600; fill: #ffffff; }
+      .num { font-size: 13px; fill: #16181d; font-variant-numeric: tabular-nums; }
     </style>
   </defs>
 
-  <rect width="760" height="476" fill="url(#bg)"/>
+  <rect width="760" height="620" fill="url(#bg)"/>
 
-  <!-- ============================ LEFT: floating card ============================ -->
+  <!-- ======================= LEFT: floating card ======================= -->
   <g filter="url(#card-shadow)">
-    <rect x="32" y="34" width="300" height="216" rx="16" fill="#ffffff" stroke="#e3ebf7"/>
+    <rect x="28" y="30" width="300" height="252" rx="16" fill="#ffffff" stroke="#e3ebf7"/>
   </g>
+  <circle cx="50" cy="56" r="4.5" fill="url(#accent)"/>
+  <circle cx="50" cy="56" r="8" fill="none" stroke="#f68b1f" stroke-opacity="0.25" stroke-width="3"/>
+  <text class="t ttl" x="64" y="61">薪跳 SalaryDance</text>
+  <text class="t cap" x="312" y="60" text-anchor="end">正在上班</text>
+  <line x1="28" y1="76" x2="328" y2="76" stroke="#f1f5fb"/>
 
-  <!-- header -->
-  <circle cx="54" cy="60" r="4.5" fill="url(#accent)"/>
-  <circle cx="54" cy="60" r="8" fill="none" stroke="#f68b1f" stroke-opacity="0.25" stroke-width="3"/>
-  <text class="t ttl" x="68" y="65">薪跳 SalaryDance</text>
-  <text class="t cap" x="314" y="64" text-anchor="end">正在上班</text>
-  <line x1="32" y1="80" x2="332" y2="80" stroke="#f1f5fb"/>
+  <text class="t cap" x="178" y="98" text-anchor="middle">今日入账</text>
+  <text class="t" x="178" y="138" text-anchor="middle" font-size="34" font-weight="700" fill="#16181d" letter-spacing="-1.2">¥301.49</text>
 
-  <!-- amount -->
-  <text class="t cap" x="182" y="102" text-anchor="middle">今日入账</text>
-  <text class="t" x="182" y="142" text-anchor="middle" font-size="34" font-weight="700" fill="#16181d" letter-spacing="-1.2">¥301.49</text>
-
-  <!-- stats -->
-  <rect x="50" y="158" width="264" height="50" rx="10" fill="#fafbfe" stroke="#eef3f9"/>
-  <line x1="138" y1="160" x2="138" y2="206" stroke="#eef3f9"/>
-  <line x1="226" y1="160" x2="226" y2="206" stroke="#eef3f9"/>
+  <rect x="46" y="154" width="264" height="50" rx="10" fill="#fafbfe" stroke="#eef3f9"/>
+  <line x1="134" y1="156" x2="134" y2="202" stroke="#eef3f9"/>
+  <line x1="222" y1="156" x2="222" y2="202" stroke="#eef3f9"/>
   <g class="t" text-anchor="middle">
-    <text class="cap" x="94" y="176">已工作</text>
-    <text class="val" x="94" y="195">14 h 55 m</text>
-    <text class="cap" x="182" y="176">距离下班</text>
-    <text class="val" x="182" y="195">3 h 4 m</text>
-    <text class="cap" x="270" y="176">今日预计</text>
-    <text class="val" x="270" y="195">¥363.64</text>
+    <text class="cap" x="90" y="172">已工作</text>
+    <text class="val" x="90" y="191">14 h 55 m</text>
+    <text class="cap" x="178" y="172">距离下班</text>
+    <text class="val" x="178" y="191">3 h 4 m</text>
+    <text class="cap" x="266" y="172">今日预计</text>
+    <text class="val" x="266" y="191">¥470.59</text>
   </g>
 
-  <!-- progress -->
-  <rect x="50" y="222" width="264" height="8" rx="4" fill="#edf1f7"/>
-  <rect x="50" y="222" width="212" height="8" rx="4" fill="url(#accent)"/>
-  <circle cx="262" cy="226" r="8" fill="url(#accent)" stroke="#ffffff" stroke-width="2.5"/>
+  <rect x="46" y="216" width="264" height="8" rx="4" fill="#edf1f7"/>
+  <rect x="46" y="216" width="212" height="8" rx="4" fill="url(#accent)"/>
+  <circle cx="258" cy="220" r="8" fill="url(#accent)" stroke="#ffffff" stroke-width="2.5"/>
 
-  <!-- annotation -->
-  <g class="t">
-    <text class="cap" x="32" y="284">可拖动 · 可收起 · 每秒跳动</text>
-    <text class="cap" x="32" y="304">位置限制在窗口内，刷新后回到右上角</text>
-  </g>
+  <text class="t cap" x="46" y="246">跳动速率</text>
+  <text class="t val" x="310" y="246" text-anchor="end">¥55.5556 / 时</text>
+  <text class="t cap" x="46" y="266">十月预计</text>
+  <text class="t val" x="310" y="266" text-anchor="end">¥8000.00</text>
 
-  <!-- ============================ RIGHT: settings panel ============================ -->
+  <!-- ======================= RIGHT: settings panel ======================= -->
   <g filter="url(#card-shadow)">
-    <rect x="368" y="26" width="360" height="394" rx="16" fill="#ffffff" stroke="#e3ebf7"/>
+    <rect x="368" y="30" width="360" height="512" rx="16" fill="#ffffff" stroke="#e3ebf7"/>
   </g>
-  <text class="t ttl" x="390" y="54">薪跳 SalaryDance · 首次配置</text>
-  <line x1="368" y1="68" x2="728" y2="68" stroke="#f1f5fb"/>
+  <text class="t ttl" x="390" y="58">薪跳 SalaryDance · 首次配置</text>
+  <line x1="368" y1="72" x2="728" y2="72" stroke="#f1f5fb"/>
 
-  <!-- step rail -->
   <g class="t">
-    <circle cx="398" cy="88" r="9.5" fill="url(#accent)"/>
-    <text x="398" y="92" text-anchor="middle" font-size="11" font-weight="700" fill="#ffffff">1</text>
-    <text x="414" y="92" font-size="12" font-weight="600" fill="#16181d">薪资模式</text>
-    <line x1="472" y1="88" x2="498" y2="88" stroke="#dfe7f2"/>
-    <circle cx="514" cy="88" r="9.5" fill="url(#accent)"/>
-    <text x="514" y="92" text-anchor="middle" font-size="11" font-weight="700" fill="#ffffff">2</text>
-    <text x="530" y="92" font-size="12" font-weight="600" fill="#16181d">工作时间</text>
-    <line x1="588" y1="88" x2="614" y2="88" stroke="#dfe7f2"/>
-    <circle cx="630" cy="88" r="9.5" fill="url(#accent)"/>
-    <text x="630" y="92" text-anchor="middle" font-size="11" font-weight="700" fill="#ffffff">3</text>
-    <text x="646" y="92" font-size="12" font-weight="600" fill="#16181d">使用偏好</text>
-  </g>
-
-  <!-- ---------- step 1: pay mode ---------- -->
-  <g class="t">
-    <text class="lbl" x="390" y="120">选择薪资模式</text>
-    <rect x="390" y="128" width="316" height="30" rx="9" fill="#fafbfe" stroke="#dfe7f2"/>
-    <path d="M390 137 a9 9 0 0 1 9-9 h96 a9 9 0 0 1 9 9 v21 h-114 z" fill="url(#accent)"/>
-    <text x="442" y="148" text-anchor="middle" class="wn">月薪</text>
-    <text x="547" y="148" text-anchor="middle" class="tn">日薪</text>
-    <text x="652" y="148" text-anchor="middle" class="tn">时薪</text>
-    <line x1="495" y1="128" x2="495" y2="158" stroke="#e7edf6"/>
-    <line x1="600" y1="128" x2="600" y2="158" stroke="#e7edf6"/>
-    <text class="lbl" x="390" y="182">月薪金额</text>
-    <rect x="390" y="190" width="316" height="32" rx="9" fill="#ffffff" stroke="#dfe7f2"/>
-    <text x="404" y="211" font-size="13" font-weight="600" fill="#16181d">8000</text>
-    <text class="cap" x="692" y="211" text-anchor="end">元</text>
-    <text class="cap" x="390" y="238">按自然月发放，按当月工作日摊到每天。</text>
+    <circle cx="398" cy="92" r="9.5" fill="url(#accent)"/>
+    <text x="398" y="96" text-anchor="middle" font-size="11" font-weight="700" fill="#ffffff">1</text>
+    <text x="414" y="96" font-size="12" font-weight="600" fill="#16181d">薪资模式</text>
+    <line x1="472" y1="92" x2="498" y2="92" stroke="#dfe7f2"/>
+    <circle cx="514" cy="92" r="9.5" fill="url(#accent)"/>
+    <text x="514" y="96" text-anchor="middle" font-size="11" font-weight="700" fill="#ffffff">2</text>
+    <text x="530" y="96" font-size="12" font-weight="600" fill="#16181d">工作时间</text>
+    <line x1="588" y1="92" x2="614" y2="92" stroke="#dfe7f2"/>
+    <circle cx="630" cy="92" r="9.5" fill="url(#accent)"/>
+    <text x="630" y="96" text-anchor="middle" font-size="11" font-weight="700" fill="#ffffff">3</text>
+    <text x="646" y="96" font-size="12" font-weight="600" fill="#16181d">使用偏好</text>
   </g>
 
-  <!-- ---------- step 2: work hours ---------- -->
+  <!-- step 1 -->
   <g class="t">
-    <line x1="368" y1="252" x2="728" y2="252" stroke="#f1f5fb"/>
-    <text class="lbl" x="390" y="274">选择工作日</text>
-    <g>
-      <rect x="390" y="282" width="36" height="26" rx="8" fill="url(#accent)"/>
-      <rect x="432" y="282" width="36" height="26" rx="8" fill="url(#accent)"/>
-      <rect x="474" y="282" width="36" height="26" rx="8" fill="url(#accent)"/>
-      <rect x="516" y="282" width="36" height="26" rx="8" fill="url(#accent)"/>
-      <rect x="558" y="282" width="36" height="26" rx="8" fill="url(#accent)"/>
-      <rect x="600" y="282" width="36" height="26" rx="8" fill="#ffffff" stroke="#dfe7f2"/>
-      <rect x="642" y="282" width="36" height="26" rx="8" fill="#ffffff" stroke="#dfe7f2"/>
-      <g text-anchor="middle">
-        <text class="wn" x="408" y="299">一</text>
-        <text class="wn" x="450" y="299">二</text>
-        <text class="wn" x="492" y="299">三</text>
-        <text class="wn" x="534" y="299">四</text>
-        <text class="wn" x="576" y="299">五</text>
-        <text class="tn" x="618" y="299">六</text>
-        <text class="tn" x="660" y="299">日</text>
-      </g>
+    <text class="lbl" x="390" y="124">选择薪资模式</text>
+    <rect x="390" y="132" width="316" height="34" rx="10" fill="#f1f4f9"/>
+    <rect x="394" y="136" width="97" height="26" rx="8" fill="#ffffff" stroke="#e8eef7"/>
+    <text x="442" y="153" text-anchor="middle" font-size="12.5" font-weight="600" fill="#16181d">月薪</text>
+    <text x="547" y="153" text-anchor="middle" class="tn">日薪</text>
+    <text x="652" y="153" text-anchor="middle" class="tn">时薪</text>
+
+    <text class="lbl" x="390" y="188">月薪金额</text>
+    <rect x="390" y="196" width="316" height="32" rx="9" fill="#ffffff" stroke="#dfe7f2"/>
+    <text x="404" y="217" font-size="13" font-weight="600" fill="#16181d">8000</text>
+    <text class="cap" x="692" y="217" text-anchor="end">元</text>
+
+    <text class="lbl" x="390" y="252">本月实际工作日（可选，0 = 用法定日历）</text>
+    <rect x="390" y="260" width="316" height="32" rx="9" fill="#ffffff" stroke="#dfe7f2"/>
+    <text x="404" y="281" font-size="13" font-weight="600" fill="#16181d">0</text>
+    <text class="cap" x="692" y="281" text-anchor="end">天</text>
+    <text class="cap" x="390" y="308">十月：实际工作日 18 天，每日有效工时 8.00 小时，折合时薪 ¥55.5556。</text>
+    <text class="cap" x="390" y="324">本月节假日：国庆节</text>
+  </g>
+
+  <!-- step 2 -->
+  <g class="t">
+    <line x1="368" y1="342" x2="728" y2="342" stroke="#f1f5fb"/>
+    <text class="lbl" x="390" y="366">选择工作日 · 上班时间</text>
+    <rect x="390" y="374" width="140" height="32" rx="9" fill="#ffffff" stroke="#dfe7f2"/>
+    <text x="404" y="395" class="num">09:00</text>
+    <circle cx="510" cy="390" r="5" fill="none" stroke="#8a9099" stroke-width="1.3"/>
+    <path d="M510 387 v3.4 h2.4" fill="none" stroke="#8a9099" stroke-width="1.3" stroke-linecap="round"/>
+    <rect x="546" y="374" width="160" height="32" rx="9" fill="#ffffff" stroke="#dfe7f2"/>
+    <text x="560" y="395" class="num">18:00</text>
+    <circle cx="676" cy="390" r="5" fill="none" stroke="#8a9099" stroke-width="1.3"/>
+    <path d="M676 387 v3.4 h2.4" fill="none" stroke="#8a9099" stroke-width="1.3" stroke-linecap="round"/>
+    <text class="cap" x="390" y="422">午休时间（可选）· 扣除午休开关</text>
+  </g>
+
+  <!-- the open wheel popover, hanging off the 18:00 field -->
+  <g filter="url(#card-shadow)">
+    <rect x="372" y="452" width="200" height="150" rx="14" fill="#ffffff" stroke="#dfe7f2"/>
+  </g>
+  <g class="t">
+    <rect x="380" y="511" width="76" height="32" rx="8" fill="#f1f4f9"/>
+    <rect x="456" y="511" width="76" height="32" rx="8" fill="#f1f4f9"/>
+    <g text-anchor="middle" font-variant-numeric="tabular-nums" font-size="13">
+      <text x="418" y="475" fill="#a8aeb6">16</text>
+      <text x="418" y="499" fill="#a8aeb6">17</text>
+      <text x="418" y="532" font-weight="700" fill="#16181d">18</text>
+      <text x="418" y="565" fill="#a8aeb6">19</text>
+      <text x="418" y="589" fill="#a8aeb6">20</text>
+      <text x="494" y="475" fill="#a8aeb6">56</text>
+      <text x="494" y="499" fill="#a8aeb6">57</text>
+      <text x="494" y="532" font-weight="700" fill="#16181d">00</text>
+      <text x="494" y="565" fill="#a8aeb6">01</text>
+      <text x="494" y="589" fill="#a8aeb6">02</text>
     </g>
-    <text class="lbl" x="390" y="332">上班时间</text>
-    <text class="lbl" x="546" y="332">下班时间</text>
-    <rect x="390" y="340" width="140" height="30" rx="9" fill="#ffffff" stroke="#dfe7f2"/>
-    <circle cx="406" cy="355" r="5" fill="none" stroke="#8a9099" stroke-width="1.3"/>
-    <path d="M406 352 v3.4 h2.4" fill="none" stroke="#8a9099" stroke-width="1.3" stroke-linecap="round"/>
-    <text x="418" y="359" font-size="12" fill="#16181d">09:00</text>
-    <rect x="546" y="340" width="160" height="30" rx="9" fill="#ffffff" stroke="#dfe7f2"/>
-    <circle cx="562" cy="355" r="5" fill="none" stroke="#8a9099" stroke-width="1.3"/>
-    <path d="M562 352 v3.4 h2.4" fill="none" stroke="#8a9099" stroke-width="1.3" stroke-linecap="round"/>
-    <text x="574" y="359" font-size="12" fill="#16181d">18:00</text>
-    <text class="lbl" x="390" y="392">午休时间（可选）</text>
-    <rect x="390" y="398" width="128" height="28" rx="9" fill="#ffffff" stroke="#dfe7f2"/>
-    <text x="404" y="417" font-size="12" fill="#16181d">12:00</text>
-    <text class="cap" x="528" y="417" text-anchor="middle">–</text>
-    <rect x="546" y="398" width="128" height="28" rx="9" fill="#ffffff" stroke="#dfe7f2"/>
-    <text x="560" y="417" font-size="12" fill="#16181d">13:00</text>
+    <text x="456" y="532" font-size="14" font-weight="700" fill="#8a9099" text-anchor="middle">:</text>
+    <line x1="380" y1="576" x2="564" y2="576" stroke="#eef3f9"/>
+    <text class="cap" x="380" y="595">滚动选择</text>
+    <text x="564" y="595" text-anchor="end" font-size="12" font-weight="600" fill="#16181d">18:00</text>
   </g>
 
-  <!-- ---------- step 3: preferences, shown as its own small card ---------- -->
+  <!-- step 3, on the left under the card -->
   <g filter="url(#card-shadow)">
-    <rect x="32" y="330" width="300" height="122" rx="14" fill="#ffffff" stroke="#e3ebf7"/>
+    <rect x="28" y="322" width="300" height="220" rx="14" fill="#ffffff" stroke="#e3ebf7"/>
   </g>
   <g class="t">
-    <text class="lbl" x="50" y="354">主题</text>
-    <rect x="50" y="362" width="264" height="28" rx="9" fill="#fafbfe" stroke="#dfe7f2"/>
-    <path d="M50 371 a9 9 0 0 1 9-9 h70 a9 9 0 0 1 9 9 v19 h-88 z" fill="url(#accent)"/>
-    <text x="94" y="381" text-anchor="middle" class="wn">浅色</text>
-    <text x="182" y="381" text-anchor="middle" class="tn">深色</text>
-    <text x="270" y="381" text-anchor="middle" class="tn">跟随系统</text>
-    <line x1="138" y1="362" x2="138" y2="390" stroke="#e7edf6"/>
-    <line x1="226" y1="362" x2="226" y2="390" stroke="#e7edf6"/>
-    <text x="50" y="410" font-size="11.5" fill="#16181d">窗口始终置顶</text>
-    <rect x="276" y="401" width="36" height="20" rx="10" fill="url(#accent)"/>
-    <circle cx="303" cy="411" r="8" fill="#ffffff"/>
-    <text x="50" y="437" font-size="11.5" fill="#16181d">迷你悬浮模式 / 开机自动启动</text>
+    <text class="ttl" x="46" y="348">使用偏好</text>
+    <text class="lbl" x="46" y="374">主题</text>
+    <rect x="46" y="382" width="264" height="30" rx="9" fill="#f1f4f9"/>
+    <rect x="50" y="386" width="82" height="22" rx="7" fill="#ffffff" stroke="#e8eef7"/>
+    <text x="91" y="401" text-anchor="middle" font-size="11.5" font-weight="600" fill="#16181d">浅色</text>
+    <text x="178" y="401" text-anchor="middle" font-size="11.5" fill="#4a505a">深色</text>
+    <text x="266" y="401" text-anchor="middle" font-size="11.5" fill="#4a505a">跟随系统</text>
+
+    <text x="46" y="438" font-size="11.5" fill="#16181d">窗口始终置顶</text>
+    <rect x="274" y="429" width="36" height="20" rx="10" fill="url(#accent)"/>
+    <circle cx="301" cy="439" r="8" fill="#ffffff"/>
+
+    <text x="46" y="468" font-size="11.5" fill="#16181d">迷你悬浮模式</text>
+    <rect x="274" y="459" width="36" height="20" rx="10" fill="#dfe7f2"/>
+    <circle cx="283" cy="469" r="8" fill="#ffffff"/>
+
+    <text x="46" y="498" font-size="11.5" fill="#16181d">开机自动启动</text>
+    <rect x="274" y="489" width="36" height="20" rx="10" fill="#dfe7f2"/>
+    <circle cx="283" cy="499" r="8" fill="#ffffff"/>
+
+    <text class="cap" x="46" y="520">所有配置仅保存在本机浏览器，不上传。</text>
   </g>
 
-  <text class="t cap" x="380" y="452" text-anchor="middle">薪跳 SalaryDance · DSH Web 界面插件 · 结构示意图（非运行截图）</text>
+  <text class="t cap" x="380" y="612" text-anchor="middle">薪跳 SalaryDance · DSH Web 界面插件 · 结构示意图（非运行截图）</text>
 </svg>

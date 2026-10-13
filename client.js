@@ -20,6 +20,148 @@ window.__ModuleLoader__.load({
 		const STORAGE_KEY = PACKAGE_NAME + '/config.v1';
 
 		/* ------------------------------------------------------------------ *
+		 * Statutory holiday calendar (mainland China)
+		 *
+		 * Transcribed from the State Council notices:
+		 *   2025 — 国办发明电〔2024〕12号
+		 *          https://www.gov.cn/zhengce/zhengceku/202411/content_6986383.htm
+		 *   2026 — 国办发明电〔2025〕7号
+		 *          https://www.gov.cn/zhengce/zhengceku/202511/content_7047091.htm
+		 * Each date appears once; `label` is only used for the month summary.
+		 * ------------------------------------------------------------------ */
+
+		const HOLIDAYS = {
+			'2025-01-01': { label: '元旦' },
+			'2025-01-28': { label: '春节' },
+			'2025-01-29': { label: '春节' },
+			'2025-01-30': { label: '春节' },
+			'2025-01-31': { label: '春节' },
+			'2025-02-01': { label: '春节' },
+			'2025-02-02': { label: '春节' },
+			'2025-02-03': { label: '春节' },
+			'2025-02-04': { label: '春节' },
+			'2025-04-04': { label: '清明节' },
+			'2025-04-05': { label: '清明节' },
+			'2025-04-06': { label: '清明节' },
+			'2025-05-01': { label: '劳动节' },
+			'2025-05-02': { label: '劳动节' },
+			'2025-05-03': { label: '劳动节' },
+			'2025-05-04': { label: '劳动节' },
+			'2025-05-05': { label: '劳动节' },
+			'2025-05-31': { label: '端午节' },
+			'2025-06-01': { label: '端午节' },
+			'2025-06-02': { label: '端午节' },
+			'2025-10-01': { label: '国庆节' },
+			'2025-10-02': { label: '国庆节' },
+			'2025-10-03': { label: '国庆节' },
+			'2025-10-04': { label: '国庆节' },
+			'2025-10-05': { label: '国庆节' },
+			'2025-10-06': { label: '国庆节' },
+			'2025-10-07': { label: '国庆节' },
+			'2025-10-08': { label: '国庆节' },
+
+			'2026-01-01': { label: '元旦' },
+			'2026-01-02': { label: '元旦' },
+			'2026-01-03': { label: '元旦' },
+			'2026-02-15': { label: '春节' },
+			'2026-02-16': { label: '春节' },
+			'2026-02-17': { label: '春节' },
+			'2026-02-18': { label: '春节' },
+			'2026-02-19': { label: '春节' },
+			'2026-02-20': { label: '春节' },
+			'2026-02-21': { label: '春节' },
+			'2026-02-22': { label: '春节' },
+			'2026-02-23': { label: '春节' },
+			'2026-04-04': { label: '清明节' },
+			'2026-04-05': { label: '清明节' },
+			'2026-04-06': { label: '清明节' },
+			'2026-05-01': { label: '劳动节' },
+			'2026-05-02': { label: '劳动节' },
+			'2026-05-03': { label: '劳动节' },
+			'2026-05-04': { label: '劳动节' },
+			'2026-05-05': { label: '劳动节' },
+			'2026-06-19': { label: '端午节' },
+			'2026-06-20': { label: '端午节' },
+			'2026-06-21': { label: '端午节' },
+			'2026-09-25': { label: '中秋节' },
+			'2026-09-26': { label: '中秋节' },
+			'2026-09-27': { label: '中秋节' },
+			'2026-10-01': { label: '国庆节' },
+			'2026-10-02': { label: '国庆节' },
+			'2026-10-03': { label: '国庆节' },
+			'2026-10-04': { label: '国庆节' },
+			'2026-10-05': { label: '国庆节' },
+			'2026-10-06': { label: '国庆节' },
+			'2026-10-07': { label: '国庆节' }
+		};
+
+		/** Weekend days the notices turned into working days (调休上班). */
+		const MAKEUP_WORKDAYS = {
+			'2025-01-26': 1,
+			'2025-02-08': 1,
+			'2025-04-27': 1,
+			'2025-09-28': 1,
+			'2025-10-11': 1,
+
+			'2026-01-04': 1,
+			'2026-02-14': 1,
+			'2026-02-28': 1,
+			'2026-05-09': 1,
+			'2026-09-20': 1,
+			'2026-10-10': 1
+		};
+
+		/** Years the calendar table above actually covers. */
+		const CALENDAR_YEARS = [2025, 2026];
+
+		/** `YYYY-MM-DD` key in the local zone. */
+		function dateKey(year, monthIndex, day) {
+			return (
+				year +
+				'-' +
+				String(monthIndex + 1).padStart(2, '0') +
+				'-' +
+				String(day).padStart(2, '0')
+			);
+		}
+
+		/** Sunday-first `getDay()` to the ISO 1..7 weekday. */
+		function isoWeekday(jsDay) {
+			return jsDay === 0 ? 7 : jsDay;
+		}
+
+		/**
+		 * The paid working days of a month: the configured weekdays, minus public
+		 * holidays, plus the weekend days the notices turned into working days.
+		 * @returns the count, whether the holiday table covers that year, and the
+		 *          holiday names falling in that month.
+		 */
+		function monthWorkdays(year, monthIndex, workDays) {
+			const total = new Date(year, monthIndex + 1, 0).getDate();
+			let count = 0;
+			const holidays = [];
+			for (let day = 1; day <= total; day += 1) {
+				const date = new Date(year, monthIndex, day);
+				const key = dateKey(year, monthIndex, day);
+				const holiday = HOLIDAYS[key];
+				if (holiday !== undefined) {
+					holidays.push(holiday.label);
+					continue;
+				}
+				if (MAKEUP_WORKDAYS[key] === 1) {
+					count += 1;
+					continue;
+				}
+				if (workDays.indexOf(isoWeekday(date.getDay())) >= 0) count += 1;
+			}
+			return {
+				count: count,
+				covered: CALENDAR_YEARS.indexOf(year) >= 0,
+				holidays: holidays
+			};
+		}
+
+		/* ------------------------------------------------------------------ *
 		 * Defaults and configuration
 		 * ------------------------------------------------------------------ */
 
@@ -30,7 +172,7 @@ window.__ModuleLoader__.load({
 			monthlySalary: 8000,
 			dailySalary: 400,
 			hourlySalary: 50,
-			workDaysPerMonth: 21.75,
+			manualWorkdays: 0, // > 0 overrides the calendar when deriving the rate
 			workDays: [1, 2, 3, 4, 5],
 			startTime: '09:00',
 			endTime: '18:00',
@@ -70,7 +212,7 @@ window.__ModuleLoader__.load({
 			merged.workDays = merged.workDays
 				.filter(function (day) { return Number.isInteger(day) && day >= 1 && day <= 7; })
 				.sort(function (a, b) { return a - b; });
-			['monthlySalary', 'dailySalary', 'hourlySalary', 'workDaysPerMonth'].forEach(function (key) {
+			['monthlySalary', 'dailySalary', 'hourlySalary', 'manualWorkdays'].forEach(function (key) {
 				const value = Number(merged[key]);
 				merged[key] = Number.isFinite(value) && value >= 0 ? value : DEFAULT_CONFIG[key];
 			});
@@ -110,9 +252,14 @@ window.__ModuleLoader__.load({
 			return Number(match[1]) * 60 + Number(match[2]);
 		}
 
-		/** Minutes after midnight for a date, with fractional seconds kept. */
+		/** Minutes after midnight, keeping the sub-minute part for a smooth ticker. */
 		function minutesOfDay(date) {
-			return date.getHours() * 60 + date.getMinutes() + date.getSeconds() / 60;
+			return (
+				date.getHours() * 60 +
+				date.getMinutes() +
+				date.getSeconds() / 60 +
+				date.getMilliseconds() / 60000
+			);
 		}
 
 		/**
@@ -166,6 +313,7 @@ window.__ModuleLoader__.load({
 				startMin: startMin,
 				spanMin: span,
 				workSpanMin: workSpan,
+				hoursPerDay: workSpan / 60,
 				breakMin: breakMin,
 				servedMin: servedRaw,
 				remainingMin: Math.max(0, workSpan - servedRaw),
@@ -176,56 +324,61 @@ window.__ModuleLoader__.load({
 			};
 		}
 
-		/** Count the configured work days in a month, ignoring public holidays. */
-		function workDaysInMonth(year, month, workDays) {
-			const total = new Date(year, month + 1, 0).getDate();
-			let count = 0;
-			for (let day = 1; day <= total; day += 1) {
-				const weekday = new Date(year, month, day).getDay();
-				if (workDays.indexOf(weekday === 0 ? 7 : weekday) >= 0) count += 1;
-			}
-			return count;
-		}
-
 		/**
-		 * Derive today's numbers from the configuration.
-		 * `daily` is the pay for one full configured work day.
-		 * @param dailyHours - paid hours in one full shift, used by hourly mode.
+		 * Derive the month's rate card.
+		 *
+		 * Hourly is the anchor: the month's actual working days (public holidays and
+		 * makeup days included) and one shift's paid hours give
+		 * `hourly = monthly / workdays / hoursPerDay`, so the rate moves with the
+		 * month and with the configured shift.
+		 *
+		 * @param actual - the calendar's answer for this month.
+		 * @param hoursPerDay - paid hours in one full shift.
 		 */
-		function computePay(config, date, dailyHours) {
-			const mode = config.salaryMode;
-			const year = date.getFullYear();
-			const month = date.getMonth();
-			const monthNames = ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月'];
-			const workDaysThisMonth = workDaysInMonth(year, month, config.workDays);
+		function computePay(config, date, actual, hoursPerDay) {
+			const monthNames = [
+				'一月', '二月', '三月', '四月', '五月', '六月',
+				'七月', '八月', '九月', '十月', '十一月', '十二月'
+			];
+			const manual = config.manualWorkdays > 0;
+			const workdays = manual ? config.manualWorkdays : actual.count;
+			const safeWorkdays = workdays > 0 ? workdays : 1;
+			const hours = hoursPerDay > 0 ? hoursPerDay : 0;
 
+			const hourly = hours > 0 ? config.monthlySalary / safeWorkdays / hours : 0;
 			let daily = 0;
-			if (mode === 'monthly') {
-				const divisor = workDaysThisMonth > 0 ? workDaysThisMonth : config.workDaysPerMonth;
-				daily = divisor > 0 ? config.monthlySalary / divisor : 0;
-			} else if (mode === 'daily') {
-				daily = config.dailySalary;
-			} else {
-				daily = config.hourlySalary * Math.max(0, dailyHours || 0);
-			}
-			return { daily: daily, monthLabel: monthNames[month], workDaysThisMonth: workDaysThisMonth };
+			if (config.salaryMode === 'monthly') daily = config.monthlySalary / safeWorkdays;
+			else if (config.salaryMode === 'daily') daily = config.dailySalary;
+			else daily = hourly * hours;
+
+			return {
+				mode: config.salaryMode,
+				workdays: workdays,
+				hoursPerDay: hours,
+				hourly: hourly,
+				daily: daily,
+				monthTotal: config.salaryMode === 'monthly' ? config.monthlySalary : daily * workdays,
+				monthLabel: monthNames[date.getMonth()],
+				covered: actual.covered && !manual,
+				manual: manual,
+				holidayNames: actual.holidays
+			};
 		}
 
-		/** Format a currency amount with two decimals and no symbol. */
-		function formatMoney(value) {
+		/** Format a currency amount with the requested decimals and no symbol. */
+		function formatMoney(value, decimals) {
+			const places = decimals === undefined ? 2 : decimals;
 			const safe = Number.isFinite(value) ? Math.max(0, value) : 0;
-			return safe.toFixed(2);
+			return safe.toFixed(places);
 		}
 
 		/** Format a duration in minutes as parts, so the card can style each unit. */
 		function formatDuration(minutes) {
 			const safe = Math.max(0, Math.round(minutes || 0));
-			const hours = Math.floor(safe / 60);
-			const mins = safe % 60;
-			return { hours: hours, minutes: mins, text: hours + ' h ' + mins + ' m' };
+			return { hours: Math.floor(safe / 60), minutes: safe % 60 };
 		}
 
-		/** Group a money string with thousands separators, keeping both decimals. */
+		/** Group a money string with thousands separators, keeping its decimals. */
 		function groupMoney(text) {
 			const parts = String(text).split('.');
 			parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
@@ -233,7 +386,7 @@ window.__ModuleLoader__.load({
 		}
 
 		/* ------------------------------------------------------------------ *
-		 * Styles
+		 * Styles — theme tokens only, no imported Harness stylesheet
 		 * ------------------------------------------------------------------ */
 
 		const CSS = `
@@ -247,21 +400,13 @@ window.__ModuleLoader__.load({
 }
 .pd-root[data-raised="true"]{ z-index:60; }
 .pd-card{
-  width:288px;
+  width:296px;
   box-sizing:border-box;
   border-radius:var(--dsw-radius-lg,14px);
   border:0.5px solid var(--dsw-alias-border-l3,rgba(0,0,0,.12));
   background:var(--dsw-alias-bg-layer-2,#fff);
   box-shadow:var(--dsw-shadow-lv2,0 8px 28px rgba(16,24,40,.14));
   overflow:hidden;
-  transition:box-shadow 140ms ease, background 140ms ease;
-}
-.pd-root[data-theme="dark"] .pd-card{
-  background:var(--dsw-alias-bg-layer-2,#1b1c20);
-  border-color:var(--dsw-alias-border-l3,rgba(255,255,255,.14));
-}
-.pd-root[data-theme="dark"]{
-  color:var(--dsw-alias-label-primary,#f2f3f5);
 }
 .pd-head{
   display:flex;
@@ -275,13 +420,12 @@ window.__ModuleLoader__.load({
 .pd-dot{
   width:8px;height:8px;border-radius:50%;
   background:var(--dsw-alias-brand-primary,#f68b1f);
-  box-shadow:0 0 0 3px color-mix(in srgb, var(--dsw-alias-brand-primary,#f68b1f) 22%, transparent);
+  box-shadow:0 0 0 3px rgba(246,139,31,.22);
   flex:0 0 auto;
 }
 .pd-title{
   font-size:13px;
   font-weight:600;
-  letter-spacing:.01em;
   white-space:nowrap;
   overflow:hidden;
   text-overflow:ellipsis;
@@ -305,12 +449,12 @@ window.__ModuleLoader__.load({
   flex:0 0 auto;
 }
 .pd-iconbtn:hover{ background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.06)); color:var(--dsw-alias-label-primary,#16181d); }
+.pd-iconbtn:focus-visible{ outline:2px solid var(--dsw-alias-state-business-primary,#4a90e2); outline-offset:1px; }
 .pd-body{ padding:0 14px 12px; }
 .pd-caption{
   font-size:11px;
   color:var(--dsw-alias-label-tertiary,#8a9099);
   text-align:center;
-  letter-spacing:.02em;
 }
 .pd-amount{
   display:flex;
@@ -321,7 +465,6 @@ window.__ModuleLoader__.load({
   font-variant-numeric:tabular-nums;
   color:var(--dsw-alias-label-primary,#16181d);
 }
-.pd-root[data-theme="dark"] .pd-amount{ color:var(--dsw-alias-label-primary,#f2f3f5); }
 .pd-amount .sym{ font-size:19px; font-weight:600; opacity:.82; }
 .pd-amount .int{ font-size:31px; font-weight:700; letter-spacing:-.02em; line-height:1.05; }
 .pd-amount .frac{ font-size:19px; font-weight:600; opacity:.82; }
@@ -353,6 +496,15 @@ window.__ModuleLoader__.load({
   transform:translate(-50%,-50%);
   box-sizing:border-box;
 }
+.pd-rate{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:8px;
+  margin-top:8px;
+  font-size:10.5px;
+  color:var(--dsw-alias-label-tertiary,#8a9099);
+  font-variant-numeric:tabular-nums;
+}
+.pd-rate .b{ color:var(--dsw-alias-label-secondary,#4a505a); font-weight:600; }
 .pd-actions{ display:flex; gap:8px; margin-top:12px; }
 .pd-btn{
   flex:1 1 auto;
@@ -369,6 +521,7 @@ window.__ModuleLoader__.load({
   display:inline-flex;align-items:center;justify-content:center;gap:6px;
 }
 .pd-btn:hover{ background:var(--dsw-alias-button-primary-hover,#e07c12); }
+.pd-btn:focus-visible{ outline:2px solid var(--dsw-alias-state-business-primary,#4a90e2); outline-offset:2px; }
 .pd-btn.ghost{
   flex:0 0 auto;
   width:34px;
@@ -376,12 +529,6 @@ window.__ModuleLoader__.load({
   color:var(--dsw-alias-label-secondary,#4a505a);
 }
 .pd-btn.ghost:hover{ background:var(--dsw-alias-interactive-bg-active,rgba(0,0,0,.09)); }
-.pd-foot{
-  font-size:10.5px;
-  color:var(--dsw-alias-label-tertiary,#8a9099);
-  text-align:center;
-  margin-top:8px;
-}
 .pd-mini{
   display:flex;align-items:center;gap:6px;
   padding:6px 12px 8px;
@@ -393,15 +540,9 @@ window.__ModuleLoader__.load({
 .pd-mini .cap{ font-size:10.5px;color:var(--dsw-alias-label-tertiary,#8a9099); }
 .pd-panel{ padding:0 14px 14px; }
 .pd-panel-head{
-  display:flex;align-items:center;gap:8px;
-  padding:9px 14px;
-  border-bottom:0.5px solid var(--dsw-alias-border-l2,rgba(0,0,0,.08));
+  display:flex;align-items:center;justify-content:flex-end;
+  padding:6px 10px 0;
 }
-.pd-panel-head .b{
-  font-size:13px;font-weight:700;
-  border:0;background:transparent;color:inherit;padding:0;cursor:pointer;font-family:inherit;
-}
-.pd-panel-head .b.off{ color:var(--dsw-alias-label-tertiary,#8a9099); font-weight:500; }
 .pd-steps{ display:flex;align-items:center;gap:6px; padding:10px 14px 4px; }
 .pd-step{ display:flex;align-items:center;gap:6px; flex:0 0 auto; }
 .pd-step .n{
@@ -414,32 +555,39 @@ window.__ModuleLoader__.load({
 .pd-step.on .n{ background:var(--dsw-alias-brand-primary,#f68b1f); color:#fff; }
 .pd-step .l{ font-size:12px; font-weight:600; color:var(--dsw-alias-label-tertiary,#8a9099); }
 .pd-step.on .l{ color:var(--dsw-alias-label-primary,#16181d); }
-.pd-root[data-theme="dark"] .pd-step.on .l{ color:var(--dsw-alias-label-primary,#f2f3f5); }
 .pd-conn{ flex:1 1 auto; height:1px; background:var(--dsw-alias-border-l2,rgba(0,0,0,.1)); }
 .pd-group{ margin-top:11px; }
 .pd-label{ font-size:11.5px; color:var(--dsw-alias-label-secondary,#4a505a); margin-bottom:6px; }
+
+/* Segmented control copies the host primitive's shape: a soft track with a
+   raised indicator riding on it. */
 .pd-seg{
-  display:flex;
-  border:0.5px solid var(--dsw-alias-border-l3,rgba(0,0,0,.12));
+  display:grid;
+  grid-auto-flow:column;
+  grid-auto-columns:1fr;
+  gap:2px;
+  padding:4px;
   border-radius:var(--dsw-radius-md,10px);
-  overflow:hidden;
-  background:var(--dsw-alias-bg-layer-1,rgba(0,0,0,.02));
+  background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.05));
 }
 .pd-seg button{
-  flex:1 1 0; appearance:none; border:0; background:transparent; font-family:inherit;
-  font-size:12px; height:30px; cursor:pointer; color:var(--dsw-alias-label-secondary,#4a505a);
-  padding:0 4px;
+  appearance:none;border:0;background:transparent;font-family:inherit;
+  height:26px;padding:0 6px;cursor:pointer;
+  border-radius:var(--dsw-radius-sm,8px);
+  font-size:12.5px;font-weight:500;
+  color:var(--dsw-alias-label-secondary,#4a505a);
+  transition:color 120ms ease, background 120ms ease;
 }
-.pd-seg button + button{ border-left:0.5px solid var(--dsw-alias-border-l2,rgba(0,0,0,.08)); }
 .pd-seg button[aria-pressed="true"]{
-  background:var(--dsw-alias-button-primary-fill,#f68b1f);
-  color:var(--dsw-alias-label-primary-foreground,#fff);
+  background:var(--dsw-alias-bg-layer-1,#fff);
+  box-shadow:var(--dsw-elevation-soft,0 1px 2px rgba(0,0,0,.12));
+  color:var(--dsw-alias-label-primary,#16181d);
   font-weight:600;
 }
-.pd-input{
-  display:flex;align-items:center;gap:6px;
-}
-.pd-input input{
+.pd-seg button:focus-visible{ outline:2px solid var(--dsw-alias-state-business-primary,#4a90e2); outline-offset:-1px; }
+
+.pd-input{ display:flex;align-items:center;gap:6px; }
+.pd-input > input{
   flex:1 1 auto; min-width:0;
   height:34px; box-sizing:border-box;
   border:0.5px solid var(--dsw-alias-border-l3,rgba(0,0,0,.12));
@@ -449,9 +597,8 @@ window.__ModuleLoader__.load({
   padding:0 9px; font-size:12.5px; font-family:inherit;
   font-variant-numeric:tabular-nums;
 }
-.pd-root[data-theme="dark"] .pd-input input{ background:var(--dsw-alias-bg-layer-1,rgba(255,255,255,.04)); color:var(--dsw-alias-label-primary,#f2f3f5); }
-.pd-input input:focus-visible{
-  outline:2px solid var(--dsw-alias-brand-primary,#f68b1f);
+.pd-input > input:focus-visible{
+  outline:2px solid var(--dsw-alias-state-business-primary,#4a90e2);
   outline-offset:1px;
 }
 .pd-input .unit{ font-size:11.5px;color:var(--dsw-alias-label-tertiary,#8a9099); flex:0 0 auto; }
@@ -470,7 +617,94 @@ window.__ModuleLoader__.load({
   color:var(--dsw-alias-label-primary-foreground,#fff);
   font-weight:600;
 }
-.pd-note{ font-size:10.5px; color:var(--dsw-alias-label-tertiary,#8a9099); margin-top:6px; line-height:1.45; }
+.pd-days button:focus-visible{ outline:2px solid var(--dsw-alias-state-business-primary,#4a90e2); outline-offset:1px; }
+.pd-note{ font-size:10.5px; color:var(--dsw-alias-label-tertiary,#8a9099); margin-top:6px; line-height:1.5; }
+.pd-note.alert{ color:var(--dsw-alias-label-error,#e5484d); }
+
+/* ---------------- scroll wheel time picker ---------------- */
+.pd-picker{ position:relative; }
+.pd-trigger{
+  width:100%;
+  display:flex;align-items:center;justify-content:space-between;gap:6px;
+  height:34px; box-sizing:border-box;
+  border:0.5px solid var(--dsw-alias-border-l3,rgba(0,0,0,.12));
+  border-radius:var(--dsw-radius-sm,8px);
+  background:var(--dsw-alias-bg-layer-1,#fff);
+  color:var(--dsw-alias-label-primary,#16181d);
+  padding:0 9px; font-size:12.5px; font-family:inherit;
+  font-variant-numeric:tabular-nums;
+  cursor:pointer;text-align:left;
+}
+.pd-trigger:disabled{ opacity:.45; cursor:default; }
+.pd-trigger:focus-visible{
+  outline:2px solid var(--dsw-alias-state-business-primary,#4a90e2);
+  outline-offset:1px;
+}
+.pd-trigger .clock{ color:var(--dsw-alias-label-tertiary,#8a9099); display:inline-flex; flex:0 0 auto; }
+.pd-pop{
+  position:absolute;
+  z-index:5;
+  left:0;
+  margin-top:6px;
+  padding:8px 8px 10px;
+  width:196px;
+  box-sizing:border-box;
+  border-radius:var(--dsw-radius-lg,14px);
+  border:0.5px solid var(--dsw-alias-border-l3,rgba(0,0,0,.12));
+  background:var(--dsw-alias-bg-layer-2,#fff);
+  box-shadow:var(--dsw-shadow-lv3,0 12px 32px rgba(16,24,40,.2));
+}
+.pd-wheels{ display:flex; align-items:stretch; gap:4px; }
+.pd-wheel-col{
+  position:relative;
+  flex:1 1 0;
+  height:160px;
+  overflow-y:auto;
+  overflow-x:hidden;
+  scrollbar-width:none;
+  -ms-overflow-style:none;
+  overscroll-behavior:contain;
+  outline:none;
+}
+.pd-wheel-col::-webkit-scrollbar{ width:0; height:0; }
+.pd-wheel-col:focus-visible{ box-shadow:inset 0 0 0 2px var(--dsw-alias-state-business-primary,#4a90e2); border-radius:var(--dsw-radius-sm,8px); }
+.pd-wheel-item{
+  height:32px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;
+  font-variant-numeric:tabular-nums;
+  color:var(--dsw-alias-label-tertiary,#8a9099);
+  cursor:pointer;
+  user-select:none;
+}
+.pd-wheel-item[data-active="true"]{
+  color:var(--dsw-alias-label-primary,#16181d);
+  font-weight:700;
+}
+/* Center band: the row the wheels are reading. */
+.pd-wheel-band{
+  position:absolute;
+  left:0; right:0; top:50%;
+  height:32px;
+  transform:translateY(-50%);
+  border-radius:var(--dsw-radius-sm,8px);
+  background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.05));
+  pointer-events:none;
+}
+.pd-wheel-colon{
+  align-self:center;
+  font-size:14px;font-weight:700;
+  color:var(--dsw-alias-label-tertiary,#8a9099);
+  flex:0 0 auto;
+}
+.pd-pop-foot{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  margin-top:8px;padding-top:8px;
+  border-top:0.5px solid var(--dsw-alias-border-l1,rgba(0,0,0,.06));
+  font-size:10.5px;color:var(--dsw-alias-label-tertiary,#8a9099);
+}
+.pd-pop-foot b{ color:var(--dsw-alias-label-primary,#16181d); font-variant-numeric:tabular-nums; font-size:12px; }
+
 .pd-switchrow{
   display:flex; align-items:center; gap:10px;
   padding:9px 0;
@@ -484,7 +718,7 @@ window.__ModuleLoader__.load({
 }
 .pd-switchrow .tx{ flex:1 1 auto; min-width:0; }
 .pd-switchrow .tx .a{ font-size:12.5px; }
-.pd-switchrow .tx .b{ font-size:10.5px; color:var(--dsw-alias-label-tertiary,#8a9099); margin-top:1px; }
+.pd-switchrow .tx .b{ font-size:10.5px; color:var(--dsw-alias-label-tertiary,#8a9099); margin-top:1px; line-height:1.4; }
 .pd-switch{
   position:relative; flex:0 0 auto;
   width:36px;height:20px;padding:2px;
@@ -495,12 +729,12 @@ window.__ModuleLoader__.load({
 .pd-switch[aria-checked="true"]{ background:var(--dsw-alias-brand-primary,#f68b1f); }
 .pd-switch span{
   display:block;width:16px;height:16px;border-radius:50%;
-  background:#fff;
+  background:var(--dsw-alias-label-primary-foreground,#fff);
   box-shadow:0 1px 2px rgba(0,0,0,.25);
   transition:transform 120ms ease;
 }
 .pd-switch[aria-checked="true"] span{ transform:translateX(16px); }
-.pd-switch:focus-visible{ outline:2px solid var(--dsw-alias-brand-primary,#f68b1f); outline-offset:2px; }
+.pd-switch:focus-visible{ outline:2px solid var(--dsw-alias-state-business-primary,#4a90e2); outline-offset:2px; }
 .pd-seal{
   display:flex; align-items:center; gap:9px;
   margin-top:11px; padding:9px 10px;
@@ -509,11 +743,11 @@ window.__ModuleLoader__.load({
   border:0.5px solid var(--dsw-alias-border-l1,rgba(0,0,0,.06));
 }
 .pd-seal .tx .a{ font-size:11.5px; font-weight:600; }
-.pd-seal .tx .b{ font-size:10.5px; color:var(--dsw-alias-label-tertiary,#8a9099); margin-top:1px; }
+.pd-seal .tx .b{ font-size:10.5px; color:var(--dsw-alias-label-tertiary,#8a9099); margin-top:1px; line-height:1.4; }
 .pd-panel-actions{ display:flex; gap:8px; margin-top:13px; }
 .pd-panel-actions .pd-btn{ height:36px; font-size:13.5px; }
 @media (prefers-reduced-motion: reduce){
-  .pd-card, .pd-switch span{ transition:none; }
+  .pd-switch span, .pd-seg button{ transition:none; }
 }
 `;
 
@@ -534,21 +768,22 @@ window.__ModuleLoader__.load({
 		}
 
 		/* ------------------------------------------------------------------ *
-		 * Small view helpers
+		 * Icons
 		 * ------------------------------------------------------------------ */
 
+		const PATHS = {
+			chevron: 'M4 8.5 L8 4.5 L12 8.5',
+			close: 'M4.5 4.5 L11.5 11.5 M11.5 4.5 L4.5 11.5',
+			arrow: 'M3 8 H12 M8.5 4 L12.5 8 L8.5 12',
+			shield: 'M8 2 L13 4 V8 C13 11 10.8 13.2 8 14 C5.2 13.2 3 11 3 8 V4 Z',
+			sun: 'M8 5.2 A2.8 2.8 0 1 1 8 10.8 A2.8 2.8 0 1 1 8 5.2 M8 1.5 V3 M8 13 V14.5 M1.5 8 H3 M13 8 H14.5 M3.4 3.4 L4.5 4.5 M11.5 11.5 L12.6 12.6 M12.6 3.4 L11.5 4.5 M4.5 11.5 L3.4 12.6',
+			pin: 'M6 2 H10 M8 2 V9 M4.5 9 H11.5 L8 14 Z',
+			window: 'M2.5 3.5 H13.5 V12.5 H2.5 Z M2.5 6.5 H13.5',
+			power: 'M8 2.5 V7.5 M4.4 4.6 A4.6 4.6 0 1 0 11.6 4.6',
+			clock: 'M8 2.5 A5.5 5.5 0 1 1 7.99 2.5 M8 4.6 V8 L10.2 9.4'
+		};
+
 		function Icon(props) {
-			const paths = {
-				chevron: 'M4 8.5 L8 4.5 L12 8.5',
-				close: 'M4.5 4.5 L11.5 11.5 M11.5 4.5 L4.5 11.5',
-				arrow: 'M3 8 H12 M8.5 4 L12.5 8 L8.5 12',
-				shield: 'M8 2 L13 4 V8 C13 11 10.8 13.2 8 14 C5.2 13.2 3 11 3 8 V4 Z',
-				check: 'M3.5 8.5 L6.5 11.5 L12.5 4.5',
-				sun: 'M8 5.2 A2.8 2.8 0 1 1 8 10.8 A2.8 2.8 0 1 1 8 5.2 M8 1.5 V3 M8 13 V14.5 M1.5 8 H3 M13 8 H14.5 M3.4 3.4 L4.5 4.5 M11.5 11.5 L12.6 12.6 M12.6 3.4 L11.5 4.5 M4.5 11.5 L3.4 12.6',
-				pin: 'M6 2 H10 M8 2 V9 M4.5 9 H11.5 L8 14 Z',
-				window: 'M2.5 3.5 H13.5 V12.5 H2.5 Z M2.5 6.5 H13.5',
-				power: 'M8 2.5 V7.5 M4.4 4.6 A4.6 4.6 0 1 0 11.6 4.6'
-			};
 			const size = props.size || 16;
 			return h(
 				'svg',
@@ -564,11 +799,15 @@ window.__ModuleLoader__.load({
 					'aria-hidden': true,
 					style: { display: 'block' }
 				},
-				(paths[props.name] || '').split(' M').map(function (segment, index) {
+				(PATHS[props.name] || '').split(' M').map(function (segment, index) {
 					return h('path', { key: index, d: (index === 0 ? '' : 'M') + segment });
 				})
 			);
 		}
+
+		/* ------------------------------------------------------------------ *
+		 * Shared controls
+		 * ------------------------------------------------------------------ */
 
 		function Switch(props) {
 			return h(
@@ -590,7 +829,10 @@ window.__ModuleLoader__.load({
 				'div',
 				{ className: 'pd-switchrow' },
 				h('span', { className: 'ic' }, h(Icon, { name: props.icon, size: 15 })),
-				h('div', { className: 'tx' }, h('div', { className: 'a' }, props.title), props.hint ? h('div', { className: 'b' }, props.hint) : null),
+				h('div', { className: 'tx' },
+					h('div', { className: 'a' }, props.title),
+					props.hint ? h('div', { className: 'b' }, props.hint) : null
+				),
 				h(Switch, { checked: props.checked, label: props.title, onChange: props.onChange })
 			);
 		}
@@ -627,21 +869,6 @@ window.__ModuleLoader__.load({
 			);
 		}
 
-		/** Time field that commits on every valid `HH:mm` value. */
-		function TimeField(props) {
-			return h('input', {
-				type: 'time',
-				step: 60,
-				value: props.value,
-				disabled: props.disabled === true,
-				'aria-label': props.label,
-				onChange: function (event) {
-					const next = event.target.value;
-					if (isClockString(next)) props.onChange(next);
-				}
-			});
-		}
-
 		function Segmented(props) {
 			return h(
 				'div',
@@ -662,6 +889,214 @@ window.__ModuleLoader__.load({
 		}
 
 		/* ------------------------------------------------------------------ *
+		 * Scroll wheel time picker
+		 *
+		 * Each column is a real scroll container: mouse wheel, trackpad, touch
+		 * drag, click-to-pick and the arrow keys all move it, and the rows snap to
+		 * the centre once the gesture stops. The value is published while the wheel
+		 * moves, so the field reads correctly before the snap finishes.
+		 * ------------------------------------------------------------------ */
+
+		const ROW_H = 32;
+		const HOURS = Array.from({ length: 24 }, function (_, index) { return index; });
+		const MINUTES = Array.from({ length: 60 }, function (_, index) { return index; });
+		const SNAP_DELAY_MS = 110;
+
+		function WheelColumn(props) {
+			const items = props.items;
+			const scrollRef = React.useRef(null);
+			const timerRef = React.useRef(0);
+			const gestureRef = React.useRef(0);
+
+			function indexOf(scrollTop) {
+				return Math.min(items.length - 1, Math.max(0, Math.round(scrollTop / ROW_H)));
+			}
+
+			/** Glide the column so `index` sits under the centre band. */
+			function scrollToIndex(index, smooth) {
+				const node = scrollRef.current;
+				if (node === null) return;
+				gestureRef.current = 0;
+				const top = index * ROW_H;
+				if (Math.abs(node.scrollTop - top) < 1) return;
+				if (smooth && typeof node.scrollTo === 'function') node.scrollTo({ top: top, behavior: 'smooth' });
+				else node.scrollTop = top;
+			}
+
+			// Centre the value when the picker opens, or when it changes from
+			// somewhere other than this wheel.
+			React.useEffect(function () {
+				const node = scrollRef.current;
+				if (node === null) return;
+				if (gestureRef.current > Date.now()) return; // mid-gesture: leave it alone
+				scrollToIndex(props.index, false);
+			}, [props.index]);
+
+			React.useEffect(function () {
+				return function () { window.clearTimeout(timerRef.current); };
+			}, []);
+
+			function onScroll() {
+				const node = scrollRef.current;
+				if (node === null) return;
+				gestureRef.current = Date.now() + 1200;
+				const index = indexOf(node.scrollTop);
+				if (index !== props.index) props.onIndex(index);
+				window.clearTimeout(timerRef.current);
+				timerRef.current = window.setTimeout(function () {
+					const settled = indexOf(node.scrollTop);
+					scrollToIndex(settled, true);
+					if (settled !== props.index) props.onIndex(settled);
+				}, SNAP_DELAY_MS);
+			}
+
+			function onKeyDown(event) {
+				const step = event.key === 'ArrowUp' ? -1 : event.key === 'ArrowDown' ? 1 : 0;
+				const jump = event.key === 'PageUp' ? -5 : event.key === 'PageDown' ? 5 : 0;
+				const delta = step !== 0 ? step : jump;
+				if (delta === 0) return;
+				event.preventDefault();
+				const next = Math.min(items.length - 1, Math.max(0, props.index + delta));
+				props.onIndex(next);
+				scrollToIndex(next, true);
+			}
+
+			const pad = 'calc(50% - ' + ROW_H / 2 + 'px)';
+			return h(
+				'div',
+				{
+					className: 'pd-wheel-col',
+					ref: scrollRef,
+					role: 'listbox',
+					tabIndex: 0,
+					'aria-label': props.label,
+					'aria-activedescendant': props.idPrefix + '-' + props.index,
+					onScroll: onScroll,
+					onKeyDown: onKeyDown
+				},
+				h('div', { style: { height: pad } }),
+				items.map(function (value, index) {
+					return h(
+						'div',
+						{
+							key: value,
+							id: props.idPrefix + '-' + index,
+							className: 'pd-wheel-item',
+							role: 'option',
+							'aria-selected': index === props.index ? 'true' : 'false',
+							'data-active': index === props.index ? 'true' : 'false',
+							onClick: function () {
+								props.onIndex(index);
+								scrollToIndex(index, true);
+							}
+						},
+						props.format(value)
+					);
+				}),
+				h('div', { style: { height: pad } })
+			);
+		}
+
+		/** `HH:mm` field backed by the two scroll wheels. */
+		function TimePicker(props) {
+			const [open, setOpen] = React.useState(false);
+			const [draft, setDraft] = React.useState(props.value);
+			const rootRef = React.useRef(null);
+			const idPrefix = React.useRef('pdw' + Math.random().toString(36).slice(2, 8)).current;
+
+			const total = toMinutes(draft, 0);
+			const hours = Math.floor(total / 60);
+			const minutes = total % 60;
+
+			function pad(value) {
+				return String(value).padStart(2, '0');
+			}
+
+			function commit(next) {
+				setDraft(next);
+				props.onChange(next);
+			}
+
+			// Opening re-reads the committed value, so a cancelled edit never lingers.
+			React.useEffect(function () {
+				if (open) setDraft(props.value);
+			}, [open, props.value]);
+
+			React.useEffect(function () {
+				if (!open) return undefined;
+				function onDown(event) {
+					if (rootRef.current !== null && !rootRef.current.contains(event.target)) setOpen(false);
+				}
+				function onKey(event) {
+					if (event.key === 'Escape') setOpen(false);
+				}
+				document.addEventListener('pointerdown', onDown, true);
+				document.addEventListener('keydown', onKey);
+				return function () {
+					document.removeEventListener('pointerdown', onDown, true);
+					document.removeEventListener('keydown', onKey);
+				};
+			}, [open]);
+
+			return h(
+				'div',
+				{ className: 'pd-picker', ref: rootRef },
+				h(
+					'button',
+					{
+						type: 'button',
+						className: 'pd-trigger',
+						disabled: props.disabled === true,
+						'aria-label': props.label,
+						'aria-haspopup': 'dialog',
+						'aria-expanded': open ? 'true' : 'false',
+						onClick: function () { setOpen(!open); }
+					},
+					h('span', null, draft),
+					h('span', { className: 'clock' }, h(Icon, { name: 'clock', size: 13 }))
+				),
+				open
+					? h(
+							'div',
+							{ className: 'pd-pop', role: 'dialog', 'aria-label': props.label },
+							h(
+								'div',
+								{ style: { position: 'relative' } },
+								h('div', { className: 'pd-wheel-band' }),
+								h(
+									'div',
+									{ className: 'pd-wheels' },
+									h(WheelColumn, {
+										items: HOURS,
+										index: hours,
+										label: props.hourLabel,
+										idPrefix: idPrefix + '-h',
+										format: pad,
+										onIndex: function (index) { commit(pad(index) + ':' + pad(minutes)); }
+									}),
+									h('span', { className: 'pd-wheel-colon' }, ':'),
+									h(WheelColumn, {
+										items: MINUTES,
+										index: minutes,
+										label: props.minuteLabel,
+										idPrefix: idPrefix + '-m',
+										format: pad,
+										onIndex: function (index) { commit(pad(hours) + ':' + pad(index)); }
+									})
+								)
+							),
+							h(
+								'div',
+								{ className: 'pd-pop-foot' },
+								h('span', null, props.hint),
+								h('b', null, draft)
+							)
+						)
+					: null
+			);
+		}
+
+		/* ------------------------------------------------------------------ *
 		 * The widget
 		 * ------------------------------------------------------------------ */
 
@@ -671,12 +1106,14 @@ window.__ModuleLoader__.load({
 			const [open, setOpen] = React.useState(false);
 			const [step, setStep] = React.useState(1);
 			const [now, setNow] = React.useState(function () { return new Date(); });
+			const [liquid, setLiquid] = React.useState(null);
 			const [pos, setPos] = React.useState({ right: 20, top: 56 });
 			const rootRef = React.useRef(null);
 			const dragRef = React.useRef(null);
+			const targetRef = React.useRef(null);
 
-			// One timer drives the whole card; it stops while the card is collapsed
-			// into mini mode to keep an idle page quiet.
+			// One one-second heartbeat drives the whole card. It stops while the card
+			// sits in mini mode, so an idle page stays quiet.
 			React.useEffect(function () {
 				if (config.miniFloat && !open) return undefined;
 				const id = window.setInterval(function () { setNow(new Date()); }, 1000);
@@ -700,7 +1137,55 @@ window.__ModuleLoader__.load({
 				update({ workDays: next });
 			}
 
-			/* Dragging: the header moves the card, bounded to the viewport. */
+			/* -------- derived numbers -------- */
+
+			const allowed = config.workDays.indexOf(isoWeekday(now.getDay())) >= 0;
+			const shift = solveShift(config, now);
+			const actual = monthWorkdays(now.getFullYear(), now.getMonth(), config.workDays);
+			const pay = computePay(config, now, actual, shift.hoursPerDay);
+			const earned = shift.workSpanMin > 0 ? pay.daily * (shift.servedMin / shift.workSpanMin) : 0;
+			const projected = allowed ? pay.daily : earned;
+			const served = formatDuration(shift.servedMin);
+			const remaining = formatDuration(shift.remainingMin);
+
+			// Countdown motion: interpolate from the previous second's amount to this
+			// second's. The target only ever moves up while the shift is running, so a
+			// settings edit taken mid-tick cannot drag the figure backwards.
+			if (targetRef.current === null || earned - targetRef.current > 0.005 || targetRef.current - earned > Math.max(0.05, earned * 0.02)) {
+				targetRef.current = earned;
+			}
+			const target = targetRef.current;
+
+			React.useEffect(function () {
+				const reduce = typeof window.matchMedia === 'function'
+					&& window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+				if (reduce) {
+					setLiquid(target);
+					return undefined;
+				}
+				let raf = 0;
+				let scheduled = 0;
+				const duration = 900;
+				function frame(timestamp) {
+					if (scheduled === 0) scheduled = timestamp;
+					const ratio = Math.min(1, (timestamp - scheduled) / duration);
+					setLiquid(function (prev) {
+						const base = prev === null ? target : prev;
+						return base + (target - base) * ratio;
+					});
+					if (ratio < 1) raf = window.requestAnimationFrame(frame);
+				}
+				raf = window.requestAnimationFrame(frame);
+				return function () { window.cancelAnimationFrame(raf); };
+			}, [target]);
+
+			const shownEarned = liquid === null ? earned : liquid;
+			const money = formatMoney(shownEarned);
+			const moneyParts = money.split('.');
+			const hourlyText = formatMoney(pay.hourly, 4);
+
+			/* -------- dragging -------- */
+
 			function onPointerDown(event) {
 				if (event.button !== 0) return;
 				const node = rootRef.current;
@@ -740,20 +1225,7 @@ window.__ModuleLoader__.load({
 				}
 			}
 
-			const allowed = config.workDays.indexOf(now.getDay() === 0 ? 7 : now.getDay()) >= 0;
-			const shift = solveShift(config, now);
-			const pay = computePay(config, now, shift.workSpanMin / 60);
-			// Today already paid, from real served work minutes.
-			const earned = shift.workSpanMin > 0 ? pay.daily * (shift.servedMin / shift.workSpanMin) : 0;
-			// Whole-day projection: a configured work day projects the full day;
-			// an off day only adds what was actually served.
-			const projected = allowed ? pay.daily : earned;
-			const monthTotal = pay.daily * pay.workDaysThisMonth;
-			const served = formatDuration(shift.servedMin);
-			const remaining = formatDuration(shift.remainingMin);
-			const money = formatMoney(earned);
-			const moneyParts = money.split('.');
-
+			/* -------- chrome -------- */
 
 			const rootProps = {
 				className: 'pd-root',
@@ -773,7 +1245,13 @@ window.__ModuleLoader__.load({
 				},
 				h('span', { className: 'pd-dot' }),
 				h('span', { className: 'pd-title' }, '薪跳 SalaryDance'),
-				!open ? h('span', { className: 'pd-status' }, allowed ? (shift.after ? t('status.done') : shift.before ? t('status.before') : t('status.working')) : t('status.off')) : null,
+				open
+					? null
+					: h('span', { className: 'pd-status' },
+							allowed
+								? (shift.after ? t('status.done') : shift.before ? t('status.before') : t('status.working'))
+								: t('status.off')
+						),
 				open
 					? h('button', {
 							type: 'button',
@@ -785,145 +1263,445 @@ window.__ModuleLoader__.load({
 					: null
 			);
 
-			if (config.miniFloat && !open) {
-				return h(
-					'div',
-					rootProps,
-					h(
-						'div',
-						{ className: 'pd-card' },
-						header,
-						h(
-							'div',
-							{ className: 'pd-mini', onClick: function () { setOpen(true); }, role: 'button', tabIndex: 0,
-								onKeyDown: function (event) { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setOpen(true); } } },
-							h('span', { className: 'sym' }, '¥'),
-							h('span', { className: 'v' }, groupMoney(money)),
-							h('span', { className: 'cap' }, t('mini.today'))
-						)
-					)
-				);
-			}
-
-			const cardBody = open
-				? h(
-						'div',
-						null,
-						h(
-							'div',
-							{ className: 'pd-panel-head' },
-							stepTab(1),
-							span4(),
-							stepTab(2),
-							span4(),
-							stepTab(3)
-						),
-						h(
-							'div',
-							{ className: 'pd-panel' },
-							step === 1 ? stepSalary() : null,
-							step === 2 ? stepSchedule() : null,
-							step === 3 ? stepPrefs() : null,
-							h(
-								'div',
-								{ className: 'pd-panel-actions' },
-								step > 1
-									? h('button', { type: 'button', className: 'pd-btn ghost', 'aria-label': t('action.back'), onClick: function () { setStep(step - 1); } }, h(Icon, { name: 'chevron', size: 13 }))
-									: null,
-								step < 3
-									? h('button', { type: 'button', className: 'pd-btn', onClick: function () { setStep(step + 1); } }, t('action.next'), h(Icon, { name: 'arrow', size: 13 }))
-									: h('button', { type: 'button', className: 'pd-btn', onClick: function () { setOpen(false); setStep(1); } }, t('action.done'), h(Icon, { name: 'arrow', size: 13 }))
-							),
-							h(
-								'div',
-								{ className: 'pd-seal' },
-								h('span', { className: 'ic', style: { color: 'var(--dsw-alias-brand-primary,#f68b1f)' } }, h(Icon, { name: 'shield', size: 17 })),
-								h('div', { className: 'tx' }, h('div', { className: 'a' }, t('privacy.title')), h('div', { className: 'b' }, t('privacy.body')))
-							)
-						)
-					)
-				: h(
-						'div',
-						{ className: 'pd-body' },
-						h('div', { className: 'pd-caption' }, t('caption.today')),
-						h(
-							'div',
-							{ className: 'pd-amount', 'aria-live': 'off' },
-							h('span', { className: 'sym' }, '¥'),
-							h('span', { className: 'int' }, groupMoney(moneyParts[0])),
-							h('span', { className: 'frac' }, '.' + moneyParts[1])
-						),
-						h(
-							'div',
-							{ className: 'pd-stats' },
-							stat(t('stat.worked'), served.hours + ' h ' + served.minutes + ' m'),
-							stat(t('stat.remaining'), remaining.hours + ' h ' + remaining.minutes + ' m'),
-							stat(t('stat.projected'), '¥' + formatMoney(projected))
-						),
-						h('div', { className: 'pd-bar', role: 'progressbar', 'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-valuenow': Math.round(shift.progress * 100), 'aria-label': t('stat.progress') },
-							h('span', { className: 'knob', style: { left: (shift.progress * 100).toFixed(2) + '%' } })
-						),
-						h(
-							'div',
-							{ className: 'pd-actions' },
-							h('button', { type: 'button', className: 'pd-btn', onClick: function () { setOpen(true); setStep(1); } }, t('action.configure'), h(Icon, { name: 'arrow', size: 13 }))
-						),
-						h('div', { className: 'pd-foot' }, t('foot.month').replace('{month}', pay.monthLabel).replace('{total}', groupMoney(formatMoney(monthTotal))))
-					);
-
-			return h('div', rootProps, h('div', { className: 'pd-card' }, header, cardBody));
-
-			/* Inline step bodies: declared inside the component so they close over state. */
-
-			function span4() {
+			function spanConn() {
 				return h('span', { className: 'pd-conn' });
 			}
 
 			function stepChip(index) {
 				const labels = [t('step.salary'), t('step.time'), t('step.prefs')];
-				return h('span', { className: 'pd-step' + (step === index ? ' on' : '') },
+				return h(
+					'span',
+					{ className: 'pd-step' + (step === index ? ' on' : '') },
 					h('span', { className: 'n' }, String(index)),
 					h('span', { className: 'l' }, labels[index - 1])
 				);
 			}
 
-			function stepSchedule() {
+			function stat(label, value) {
+				return h('div', { className: 'pd-stat' }, h('div', { className: 'k' }, label), h('div', { className: 'v' }, value));
+			}
+
+			function stepRail() {
+				return h('div', { className: 'pd-steps' }, stepChip(1), spanConn(), stepChip(2), spanConn(), stepChip(3));
+			}
+
+			function calendarNote() {
+				if (pay.manual) return h('div', { className: 'pd-note' }, t('note.manualOn').replace('{n}', String(pay.workdays)));
+				if (!pay.covered) {
+					return h('div', { className: 'pd-note alert' }, t('note.noCalendar').replace('{year}', String(now.getFullYear())));
+				}
+				const names = Array.from(new Set(pay.holidayNames)).join(t('list.separator'));
+				return h('div', { className: 'pd-note' },
+					t('note.calendar')
+						.replace('{month}', pay.monthLabel)
+						.replace('{days}', String(pay.workdays))
+						.replace('{hours}', pay.hoursPerDay.toFixed(2))
+						.replace('{rate}', hourlyText),
+					names === '' ? null : h('div', null, t('note.holidays').replace('{names}', names))
+				);
+			}
+
+			function timePicker(field, value, disabled) {
+				return h(TimePicker, {
+					label: t(field),
+					hourLabel: t(field + '.hour'),
+					minuteLabel: t(field + '.minute'),
+					hint: t('picker.hint'),
+					value: value,
+					disabled: disabled === true,
+					onChange: function (next) {
+						const patch = {};
+						patch[
+							field === 'field.start' ? 'startTime'
+								: field === 'field.end' ? 'endTime'
+									: field === 'field.lunchStart' ? 'lunchStart'
+										: 'lunchEnd'
+						] = next;
+						update(patch);
+					}
+				});
+			}
+
+			function stepSalary() {
 				return h(
 					'div',
 					null,
 					stepRail(),
 					h('div', { className: 'pd-group' },
-						h('div', { className: 'pd-label' },
-							t('field.calendar')
-								.replace('{month}', String(now.getMonth() + 1))
-								.replace('{days}', String(actualCount))
-						),
-						monthGrid()
-					),
-					h('div', { className: 'pd-group pd-row' },
-						h('div', null,
-							h('div', { className: 'pd-label' }, t('field.start')),
-							timePicker('field.start', config.startTime, false)
-						),
-						h('div', null,
-							h('div', { className: 'pd-label' }, t('field.end')),
-							timePicker('field.end', config.endTime, false)
-						)
-					),
-					h('div', { className: 'pd-group' },
-						h('div', { className: 'pd-label' }, t('field.lunch')),
-						h('div', { className: 'pd-row' },
-							h('div', null, timePicker('field.lunchStart', config.lunchStart, !config.lunchEnabled)),
-							h('div', null, timePicker('field.lunchEnd', config.lunchEnd, !config.lunchEnabled))
-						),
-						h(SwitchRow, {
-							icon: 'sun',
-							title: t('field.lunchOn'),
-							hint: t('hint.lunchOn'),
-							checked: config.lunchEnabled,
-							onChange: function (value) { update({ lunchEnabled: value }); }
+						h('div', { className: 'pd-label' }, t('field.mode')),
+						h(Segmented, {
+							label: t('field.mode'),
+							value: config.salaryMode,
+							onChange: function (value) { update({ salaryMode: value }); },
+							options: [
+								{ value: 'monthly', label: t('mode.monthly') },
+								{ value: 'daily', label: t('mode.daily') },
+								{ value: 'hourly', label: t('mode.hourly') }
+							]
 						})
 					),
-					h('div', { className: 'pd-note' }, t('note.shift'))
+					config.salaryMode === 'monthly'
+						? h('div', { className: 'pd-group' },
+								h('div', { className: 'pd-label' }, t('field.monthly')),
+								h(NumberField, {
+									label: t('field.monthly'),
+									value: config.monthlySalary,
+									unit: t('unit.yuan'),
+									onChange: function (value) { update({ monthlySalary: value }); }
+								}),
+								h('div', { className: 'pd-note' }, t('note.monthly'))
+							)
+						: null,
+					config.salaryMode === 'daily'
+						? h('div', { className: 'pd-group' },
+								h('div', { className: 'pd-label' }, t('field.daily')),
+								h(NumberField, {
+									label: t('field.daily'),
+									value: config.dailySalary,
+									unit: t('unit.perDay'),
+									onChange: function (value) { update({ dailySalary: value }); }
+								}),
+								h('div', { className: 'pd-note' }, t('note.daily'))
+							)
+						: null,
+					config.salaryMode === 'hourly'
+						? h('div', { className: 'pd-group' },
+								h('div', { className: 'pd-label' }, t('field.hourly')),
+								h(NumberField, {
+									label: t('field.hourly'),
+									value: config.hourlySalary,
+									unit: t('unit.perHour'),
+									onChange: function (value) { update({ hourlySalary: value }); }
+								}),
+								h('div', { className: 'pd-note' },
+									t('note.hourlyManual').replace('{rate}', hourlyText)
+								)
+							)
+						: null,
+					config.salaryMode !== 'daily'
+						? h('div', { className: 'pd-group' },
+								h('div', { className: 'pd-label' },
+									t(config.manualWorkdaysOverride === true
+										? 'field.manualWorkdays.edited'
+										: 'field.manualWorkdays.label')
+								),
+								h('div', { className: 'pd-input' },
+									h(NumberField, {
+										label: t('field.manualWorkdays.label'),
+										value: resolveManualWorkdays(config, actualCount),
+										unit: t('unit.days'),
+										onChange: function (value) {
+											// Editing the row is what makes it an override; a cleared
+											// field falls back to the calendar rather than to zero.
+											update(value > 0
+												? { manualWorkdays: value, manualWorkdaysOverride: true }
+												: { manualWorkdays: 0, manualWorkdaysOverride: false });
+										}
+									}),
+									config.manualWorkdaysOverride === true
+										? h('button', {
+												type: 'button',
+												className: 'pd-reset',
+												title: t('action.resetAuto'),
+												'aria-label': t('action.resetAuto'),
+												onClick: function () {
+													update({ manualWorkdays: actualCount, manualWorkdaysOverride: false });
+												}
+											}, t('action.resetAuto'))
+										: null
+								),
+								calendarNote()
+							)
+						: null
 				);
+			}			const cardBody = open
+				? h('div', null,
+						h('div', { className: 'pd-panel-head' }, stepTab(1), spanConn(), stepTab(2), spanConn(), stepTab(3)),
+						h('div', { className: 'pd-panel' },
+							step === 1 ? stepSalary() : null,
+							step === 2 ? stepSchedule() : null,
+							step === 3 ? stepPrefs() : null,
+							h('div', { className: 'pd-panel-actions' },
+								step > 1
+									? h('button', {
+											type: 'button',
+											className: 'pd-btn ghost',
+											'aria-label': t('action.back'),
+											onClick: function () { setStep(step - 1); }
+										}, h(Icon, { name: 'chevron', size: 13 }))
+									: null,
+								step < 3
+									? h('button', {
+											type: 'button',
+											className: 'pd-btn',
+											onClick: function () { setStep(step + 1); }
+										}, t('action.next'), h(Icon, { name: 'arrow', size: 13 }))
+									: h('button', {
+											type: 'button',
+											className: 'pd-btn',
+											onClick: function () { setOpen(false); setStep(1); }
+										}, t('action.done'), h(Icon, { name: 'arrow', size: 13 }))
+							),
+							h('div', { className: 'pd-seal' },
+								h('span', { className: 'ic', style: { color: 'var(--dsw-alias-brand-primary,#f68b1f)' } },
+									h(Icon, { name: 'shield', size: 17 })
+								),
+								h('div', { className: 'tx' },
+									h('div', { className: 'a' }, t('privacy.title')),
+									h('div', { className: 'b' }, t('privacy.body'))
+								)
+							)
+						)
+					)
+				: h('div', { className: 'pd-body' },
+						h('div', { className: 'pd-caption' }, t('caption.today')),
+						h('div', { className: 'pd-amount', 'aria-live': 'off' },
+							h('span', { className: 'sym' }, '¥'),
+							h('span', { className: 'int' }, groupMoney(moneyParts[0])),
+							h('span', { className: 'frac' }, '.' + moneyParts[1])
+						),
+						h('div', { className: 'pd-stats' },
+							stat(t('stat.worked'), served.hours + ' h ' + served.minutes + ' m'),
+							stat(t('stat.remaining'), remaining.hours + ' h ' + remaining.minutes + ' m'),
+							stat(t('stat.projected'), '¥' + formatMoney(projected))
+						),
+						h('div', {
+							className: 'pd-bar',
+							role: 'progressbar',
+							'aria-valuemin': 0,
+							'aria-valuemax': 100,
+							'aria-valuenow': Math.round(shift.progress * 100),
+							'aria-label': t('stat.progress')
+						}, h('span', { className: 'knob', style: { left: (shift.progress * 100).toFixed(2) + '%' } })),
+						h('div', { className: 'pd-rate' },
+							h('span', null, t('stat.ticking')),
+							h('span', { className: 'b' }, '¥' + hourlyText + ' / ' + t('unit.hour'))
+						),
+						h('div', { className: 'pd-actions' },
+							h('button', {
+								type: 'button',
+								className: 'pd-btn',
+								onClick: function () { setOpen(true); setStep(1); }
+							}, t('action.configure'), h(Icon, { name: 'arrow', size: 13 }))
+						),
+						h('div', { className: 'pd-rate' },
+							h('span', null, t('foot.month').replace('{month}', pay.monthLabel)),
+							h('span', { className: 'b' }, '¥' + formatMoney(pay.monthTotal))
+						)
+					);
+
+			return h('div', rootProps, h('div', { className: 'pd-card' }, header, cardBody));
+		}
+
+		/* ------------------------------------------------------------------ *
+		 * Dictionaries and plugin body
+		 * ------------------------------------------------------------------ */
+
+		const DICTIONARIES = {
+			zh: {
+				'caption.today': '今日入账',
+				'stat.worked': '已工作',
+				'stat.remaining': '距离下班',
+				'stat.projected': '今日预计',
+				'stat.progress': '今日工作进度',
+				'stat.ticking': '跳动速率',
+				'unit.hour': '时',
+				'unit.days': '天',
+				'unit.yuan': '元',
+				'unit.perDay': '元 / 天',
+				'unit.perHour': '元 / 时',
+				'list.separator': '、',
+				'status.working': '正在上班',
+				'status.before': '还未上班',
+				'status.after': '已下班',
+				'status.done': '今日已收工',
+				'status.off': '今日休息',
+				'mini.today': '今日',
+				'action.configure': '设置',
+				'action.next': '下一步',
+				'action.back': '上一步',
+				'action.done': '完成配置，开始使用',
+				'action.collapse': '收起',
+				'foot.month': '{month}预计',
+				'step.salary': '薪资模式',
+				'step.time': '工作时间',
+				'step.prefs': '使用偏好',
+				'field.mode': '选择薪资模式',
+				'mode.monthly': '月薪',
+				'mode.daily': '日薪',
+				'mode.hourly': '时薪',
+				'field.monthly': '月薪金额',
+				'field.daily': '日薪金额',
+				'field.hourly': '时薪金额',
+				'field.manualWorkdays.label': '本月实际工作日',
+				'field.manualWorkdays.hint': '留 0 表示用内置法定节假日日历。',
+				'field.workdays': '选择工作日',
+				'field.start': '上班时间',
+				'field.end': '下班时间',
+				'field.lunch': '午休时间（可选）',
+				'field.lunchStart': '午休开始',
+				'field.lunchEnd': '午休结束',
+				'field.lunchOn': '扣除午休',
+				'field.hour': '小时',
+				'field.minute': '分钟',
+				'field.start.hour': '上班小时',
+				'field.start.minute': '上班分钟',
+				'field.end.hour': '下班小时',
+				'field.end.minute': '下班分钟',
+				'field.lunchStart.hour': '午休开始小时',
+				'field.lunchStart.minute': '午休开始分钟',
+				'field.lunchEnd.hour': '午休结束小时',
+				'field.lunchEnd.minute': '午休结束分钟',
+				'field.theme': '主题',
+				'field.alwaysOnTop': '窗口始终置顶',
+				'field.mini': '迷你悬浮模式',
+				'field.autoLaunch': '开机自动启动',
+				'field.ratePreview': '当前费率（随月份变化）',
+				'hint.lunchOn': '午休时段不计入工作时长',
+				'hint.alwaysOnTop': '卡片始终显示在界面最上层',
+				'hint.mini': '只显示今日入账，点击展开主界面',
+				'hint.autoLaunch': '本插件是界面插件，实际由 DSH 进程启动时机决定',
+				'picker.hint': '滚动选择',
+				'note.monthly': '按法定节假日后当月实际工作日摊算。',
+				'note.daily': '每个工作日固定计价。',
+				'note.hourlyManual': '时薪 = 月薪 ÷ 当月实际工作日 ÷ 每日工作时长；当前为 ¥{rate}/时。',
+				'note.calendar': '{month}：实际工作日 {days} 天，每日有效工时 {hours} 小时，折合时薪 ¥{rate}。',
+				'note.manualOn': '已手动指定本月 {n} 个工作日，暂不使用法定日历。',
+				'note.noCalendar': '{year} 年的法定节假日安排尚未内置，暂按周一至周五估算。',
+				'note.holidays': '本月节假日：{names}',
+				'note.shift': '跨夜班次同样支持：下班时间早于上班时间即视为次日下班。',
+				'note.prefs': '以上偏好保存在本机浏览器中，不会上传。',
+				'rate.hourly': '时薪',
+				'rate.daily': '日薪',
+				'rate.workdays': '本月实际工作日',
+				'rate.monthTotal': '本月预计',
+				'privacy.title': '所有配置仅保存在本地',
+				'privacy.body': '无需账号，无需联网，更安心'
+			},
+			en: {
+				'caption.today': "Today's earnings",
+				'stat.worked': 'Worked',
+				'stat.remaining': 'Until off-work',
+				'stat.projected': "Today's estimate",
+				'stat.progress': "Today's work progress",
+				'stat.ticking': 'Ticking rate',
+				'unit.hour': 'h',
+				'unit.days': 'days',
+				'unit.yuan': 'CNY',
+				'unit.perDay': 'CNY / day',
+				'unit.perHour': 'CNY / h',
+				'list.separator': ', ',
+				'status.working': 'On shift',
+				'status.before': 'Not started',
+				'status.after': 'Off work',
+				'status.done': 'Done for today',
+				'status.off': 'Day off',
+				'mini.today': 'today',
+				'action.configure': 'Configure',
+				'action.next': 'Next',
+				'action.back': 'Back',
+				'action.done': 'Finish and start',
+				'action.collapse': 'Collapse',
+				'foot.month': '{month} estimate',
+				'step.salary': 'Pay mode',
+				'step.time': 'Work hours',
+				'step.prefs': 'Preferences',
+				'field.mode': 'Pay mode',
+				'mode.monthly': 'Monthly',
+				'mode.daily': 'Daily',
+				'mode.hourly': 'Hourly',
+				'field.monthly': 'Monthly salary',
+				'field.daily': 'Daily rate',
+				'field.hourly': 'Hourly rate',
+				'field.manualWorkdays.label': 'Working days this month',
+				'field.manualWorkdays.hint': 'Leave 0 to use the built-in public-holiday calendar.',
+				'field.workdays': 'Working days',
+				'field.start': 'Start',
+				'field.end': 'End',
+				'field.lunch': 'Lunch break (optional)',
+				'field.lunchStart': 'Break start',
+				'field.lunchEnd': 'Break end',
+				'field.lunchOn': 'Deduct lunch break',
+				'field.hour': 'Hour',
+				'field.minute': 'Minute',
+				'field.start.hour': 'Start hour',
+				'field.start.minute': 'Start minute',
+				'field.end.hour': 'End hour',
+				'field.end.minute': 'End minute',
+				'field.lunchStart.hour': 'Break start hour',
+				'field.lunchStart.minute': 'Break start minute',
+				'field.lunchEnd.hour': 'Break end hour',
+				'field.lunchEnd.minute': 'Break end minute',
+				'field.theme': 'Theme',
+				'field.alwaysOnTop': 'Always on top',
+				'field.mini': 'Mini float mode',
+				'field.autoLaunch': 'Launch on startup',
+				'field.ratePreview': 'Current rate (moves with the month)',
+				'hint.lunchOn': 'The break does not count as worked time',
+				'hint.alwaysOnTop': 'Keep the card above the interface',
+				'hint.mini': 'Show only today\u2019s earnings; click to expand',
+				'hint.autoLaunch': 'A UI plugin follows the DSH process, which owns when the UI mounts',
+				'picker.hint': 'scroll to pick',
+				'note.monthly': 'Spread over the month\u2019s actual working days after public holidays.',
+				'note.daily': 'A fixed rate for every working day.',
+				'note.hourlyManual': 'Hourly = monthly \u00f7 working days \u00f7 daily hours; now \u00a5{rate}/h.',
+				'note.calendar': '{month}: {days} working days, {hours} paid hours a day, \u00a5{rate} an hour.',
+				'note.manualOn': 'Manually set to {n} working days; the holiday calendar is not used.',
+				'note.noCalendar': 'No built-in holiday schedule for {year}; Monday to Friday is assumed.',
+				'note.holidays': 'Holidays this month: {names}',
+				'note.shift': 'Overnight shifts work too: an end earlier than the start means the next day.',
+				'note.prefs': 'These preferences stay in this browser and are never uploaded.',
+				'rate.hourly': 'Hourly',
+				'rate.daily': 'Daily',
+				'rate.workdays': 'Working days this month',
+				'rate.monthTotal': 'Month estimate',
+				'privacy.title': 'Everything is stored locally',
+				'privacy.body': 'No account, no network, no worries'
 			}
+		};
+
+		/** Register the widget and its dictionaries; everything is an owned effect. */
+		function apply(ctx) {
+			ctx.effect(installStyles, 'salarydance: styles');
+
+			if (ctx.locale !== undefined && typeof ctx.locale.register === 'function') {
+				ctx.effect(function () {
+					return ctx.locale.register(NS, DICTIONARIES);
+				}, 'salarydance: dictionaries');
+			}
+
+			ctx.slots.inject('shell.overlay', function () {
+				return ctx.slots.register(
+					{
+						name: 'shell.overlay',
+						id: 'salarydance',
+						order: 5,
+						locale: NS,
+						inject: function () { return { frame: 'salarydance' }; }
+					},
+					SalaryDanceWidget
+				);
+			});
+		}
+
+		exports.apply = apply;
+		exports.inject = inject;
+		exports.SalaryDanceWidget = SalaryDanceWidget;
+		/** Pure helpers and data exported for the headless regression tests. */
+		exports.__internal = {
+			DICTIONARIES: DICTIONARIES,
+			HOLIDAYS: HOLIDAYS,
+			MAKEUP_WORKDAYS: MAKEUP_WORKDAYS,
+			CALENDAR_YEARS: CALENDAR_YEARS,
+			monthWorkdays: monthWorkdays,
+			solveShift: solveShift,
+			computePay: computePay,
+			formatMoney: formatMoney,
+			toMinutes: toMinutes,
+			DEFAULT_CONFIG: DEFAULT_CONFIG
+		};
+		return module.exports;
+	}
+});
+
+//# sourceMappingURL=client.js.map
