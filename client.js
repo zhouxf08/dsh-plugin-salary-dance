@@ -659,6 +659,9 @@ window.__ModuleLoader__.load({
   position:relative;
   flex:1 1 0;
   height:160px;
+  /* The card root sets touch-action:none so the header can be dragged; the
+     wheels must opt back in to vertical panning. */
+  touch-action:pan-y;
   overflow-y:auto;
   overflow-x:hidden;
   scrollbar-width:none;
