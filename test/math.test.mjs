@@ -656,6 +656,73 @@ check('.pd-pop 具有高 z-index', Number((popRule.match(/z-index\s*:\s*(\d+)/) 
 check('弹层宽度与 placePopover 一致', Number((popRule.match(/width\s*:\s*(\d+)px/) || [])[1]), POP_W);
 
 /* ------------------------------------------------------------------ *
+ * 4d. The settings affordance
+ *
+ * It is an icon-only control, so the check is structural rather than textual:
+ * the button must exist, carry an accessible name, and render no text of its
+ * own. The full-width action row it replaced must be gone.
+ * ------------------------------------------------------------------ */
+
+console.log('\n--- 设置入口 ---');
+function nodeByClass(tree, className) {
+  let found = null;
+  (function walk(node) {
+    if (found !== null || node === null || node === undefined) return;
+    if (Array.isArray(node)) { node.forEach(walk); return; }
+    if (typeof node !== 'object' || node.children === undefined) return;
+    if (node.props && typeof node.props.className === 'string' && node.props.className.split(' ').includes(className)) {
+      found = node;
+      return;
+    }
+    node.children.forEach(walk);
+  })(tree);
+  return found;
+}
+
+function allText(node, out = []) {
+  if (node === null || node === undefined || typeof node === 'boolean') return out;
+  if (typeof node === 'string' || typeof node === 'number') { out.push(String(node)); return out; }
+  if (Array.isArray(node)) { node.forEach((child) => allText(child, out)); return out; }
+  if (typeof node === 'object' && node.children) allText(node.children, out);
+  return out;
+}
+
+const gearTree = render('2026-10-14T10:00:00', { monthlySalary: 8000 });
+const gear = nodeByClass(gearTree, 'pd-gear');
+check('卡片上有设置图标按钮', gear !== null, 'true');
+check('设置按钮是 button', gear === null ? '(none)' : gear.type, 'button');
+check('设置按钮有点击处理', gear !== null && typeof gear.props.onClick === 'function', 'true');
+check('设置按钮有可访问名称', gear !== null && gear.props['aria-label'] === '设置', 'true');
+check('设置按钮渲染时不带文字', gear === null ? '(none)' : allText(gear).join(''), '');
+// The button holds an <Icon> element, not a string. Function components are left
+// un-invoked by this harness (React would call them), so the check is on the
+// element it was given plus the path table that element will draw from.
+const gearChild = gear === null ? null : gear.children[0];
+check('设置按钮的子元素是图标组件', gearChild === null ? '(none)' : typeof gearChild.type, 'function');
+check('图标指向 gear 图形', gearChild === null ? '(none)' : gearChild.props.name, 'gear');
+const gearPath = api.ICON_PATHS.gear;
+check('gear 图形已定义', typeof gearPath === 'string' && gearPath.length > 20, 'true');
+// The previous assertion here was `/A/.test(path) && path.split('M').length > 6`,
+// which the sun-like glyph satisfied too — a circle plus eight radiating spokes.
+// It therefore could not tell a gear from a sun. These check the gear's actual
+// shape: a closed cog outline whose edges curve, plus a separate inner circle.
+check('gear 是闭合图形', /Z\s*$/.test(gearPath.trim()), 'true');
+check('gear 有齿形曲边（C 命令）', gearPath.includes('C'), 'true');
+check('gear 的外轮廓与内圆是两段', gearPath.split('M').length - 1, 2);
+// A sun is drawn from straight radial spokes; a cog is not.
+check('gear 不是放射线拼的', (gearPath.match(/\s[VH]\d/g) || []).length <= 8, 'true');
+// Two icons: the gear, and a caret that says the control opens something.
+check('按钮内有两个图标', gear === null ? '(none)' : gear.children.length, 2);
+check('第二个图标是展开指示', gear === null ? '(none)' : gear.children[1].props.name, 'chevron');
+check('旧的整行操作区已移除', nodeByClass(gearTree, 'pd-actions'), 'null');
+check('底部是「总额 + 图标」一行', nodeByClass(gearTree, 'pd-foot-row') !== null, 'true');
+check('口径行仍在底部', hasText(gearTree, '实际工作日'), 'true');
+
+// The gear must not collide with the month figure it shares the row with.
+const footRow = nodeByClass(gearTree, 'pd-foot-row');
+check('底部一行只有两个子元素', footRow === null ? '(none)' : footRow.children.length, 2);
+
+/* ------------------------------------------------------------------ *
  * 5. Copy coverage: every rendered string resolves to a dictionary entry,
  *    and the two dictionaries carry the same key set.
  * ------------------------------------------------------------------ */

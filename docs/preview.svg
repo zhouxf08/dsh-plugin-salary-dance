@@ -29,7 +29,7 @@
 
   <!-- ======================= LEFT: floating card ======================= -->
   <g filter="url(#card-shadow)">
-    <rect x="28" y="30" width="300" height="268" rx="16" fill="#ffffff" stroke="#e3ebf7"/>
+    <rect x="28" y="30" width="300" height="248" rx="16" fill="#ffffff" stroke="#e3ebf7"/>
   </g>
   <circle cx="50" cy="56" r="4.5" fill="url(#accent)"/>
   <circle cx="50" cy="56" r="8" fill="none" stroke="#f68b1f" stroke-opacity="0.25" stroke-width="3"/>
@@ -58,10 +58,16 @@
   <rect x="46" y="216" width="212" height="8" rx="4" fill="url(#accent)"/>
   <circle cx="258" cy="220" r="8" fill="url(#accent)" stroke="#ffffff" stroke-width="2.5"/>
 
-  <text class="t cap" x="46" y="266">本月预计</text>
-  <text class="t val" x="310" y="266" text-anchor="end">¥8000.00</text>
-  <circle cx="62" cy="282" r="4" fill="none" stroke="#a8aeb6" stroke-width="1.1"/>
-  <text class="t" x="178" y="286" text-anchor="middle" font-size="10" fill="#8a9099">2026年10月 · 实际工作日 18 天 · 日薪 444.44 元</text>
+  <text class="t cap" x="46" y="246">本月预计</text>
+  <text class="t val" x="268" y="246" text-anchor="end">¥8000.00</text>
+  <rect x="280" y="234" width="34" height="18" rx="6" fill="#f1f4f9"/>
+  <g stroke="#4a505a" stroke-width="1.1" fill="none" stroke-linecap="round">
+    <path d="M291 237.5 V239.5 M291 246.5 V248.5 M286.5 243 H288.5 M293.5 243 H295.5 M287.8 239.8 L289.2 241.2 M292.8 244.8 L294.2 246.2 M294.2 239.8 L292.8 241.2 M289.2 244.8 L287.8 246.2"/>
+    <circle cx="291" cy="243" r="1.8"/>
+  </g>
+  <path d="M299 241.5 L301 243.5 L299 245.5" stroke="#8a9099" stroke-width="1.1" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="62" cy="262" r="4" fill="none" stroke="#a8aeb6" stroke-width="1.1"/>
+  <text class="t" x="178" y="266" text-anchor="middle" font-size="10" fill="#8a9099">2026年10月 · 实际工作日 18 天 · 日薪 444.44 元</text>
 
   <!-- ======================= RIGHT: settings panel ======================= -->
   <g filter="url(#card-shadow)">

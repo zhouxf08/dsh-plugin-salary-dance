@@ -554,7 +554,7 @@ window.__ModuleLoader__.load({
 }
 .pd-rate .b{ color:var(--dsw-alias-label-secondary,#4a505a); font-weight:600; }
 /* The projection's fine print: which month, and how many working days it uses. */
-.pd-foot{ margin-top:10px; }
+.pd-foot{ margin-top:0; }
 .pd-foot-meta{
   display:flex;align-items:center;justify-content:center;gap:5px;
   margin-top:4px;
@@ -567,7 +567,28 @@ window.__ModuleLoader__.load({
 .pd-foot-meta svg{ flex:0 0 auto; }
 .pd-foot-meta .lead{ font-weight:600; color:var(--dsw-alias-label-secondary,#4a505a); }
 .pd-foot-meta > span + span::before{ content:'·'; margin-right:5px; color:var(--dsw-alias-border-l3,rgba(0,0,0,.25)); }
-.pd-actions{ display:flex; gap:8px; margin-top:12px; }
+.pd-foot-row{ display:flex; align-items:center; gap:8px; margin-top:10px; }
+.pd-foot-row .pd-rate{ flex:1 1 auto; margin-top:0; }
+/* Icon-only settings entry: quiet until hovered, matching the header's controls. */
+.pd-gear{
+  appearance:none;
+  flex:0 0 auto;
+  height:24px;
+  padding:0 7px;
+  border:0.5px solid transparent;
+  border-radius:var(--dsw-radius-sm,8px);
+  background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.05));
+  color:var(--dsw-alias-label-secondary,#4a505a);
+  display:inline-flex;align-items:center;justify-content:center;
+  gap:2px;
+  cursor:pointer;
+}
+.pd-gear svg:last-child{ color:var(--dsw-alias-label-tertiary,#8a9099); }
+.pd-gear:hover{
+  background:var(--dsw-alias-interactive-bg-active,rgba(0,0,0,.09));
+  color:var(--dsw-alias-label-primary,#16181d);
+}
+.pd-gear:focus-visible{ outline:2px solid var(--dsw-alias-state-business-primary,#4a90e2); outline-offset:1px; }
 .pd-btn{
   flex:1 1 auto;
   appearance:none;
@@ -846,7 +867,8 @@ window.__ModuleLoader__.load({
 			window: 'M2.5 3.5 H13.5 V12.5 H2.5 Z M2.5 6.5 H13.5',
 			power: 'M8 2.5 V7.5 M4.4 4.6 A4.6 4.6 0 1 0 11.6 4.6',
 			clock: 'M8 2.5 A5.5 5.5 0 1 1 7.99 2.5 M8 4.6 V8 L10.2 9.4',
-			calendar: 'M2.5 4 H13.5 V13 H2.5 Z M2.5 6.8 H13.5 M5.5 2.5 V5 M10.5 2.5 V5'
+			calendar: 'M2.5 4 H13.5 V13 H2.5 Z M2.5 6.8 H13.5 M5.5 2.5 V5 M10.5 2.5 V5',
+			gear: 'M13.0107 7.79377C12.9505 7.89401 12.9205 7.94413 12.9205 7.99951C12.9205 8.0549 12.9505 8.10502 13.0106 8.20528L13.9849 9.83006C14.045 9.93029 14.0751 9.9804 14.0751 10.0358C14.0751 10.0911 14.045 10.1413 13.9849 10.2415L13.0037 11.8777C12.9468 11.9726 12.9184 12.0201 12.8725 12.0461C12.8267 12.072 12.7713 12.072 12.6607 12.072H10.6704C10.5598 12.072 10.5045 12.072 10.4586 12.098C10.4128 12.1239 10.3843 12.1714 10.3274 12.2662L9.33825 13.9142C9.28133 14.009 9.25287 14.0564 9.20703 14.0823C9.16118 14.1083 9.10588 14.1083 8.99529 14.1083H7.00486C6.89426 14.1083 6.83896 14.1083 6.79312 14.0823C6.74727 14.0564 6.71881 14.009 6.6619 13.9142L5.67273 12.2662C5.61581 12.1714 5.58735 12.1239 5.54151 12.098C5.49566 12.072 5.44036 12.072 5.32977 12.072H3.33945C3.2288 12.072 3.17347 12.072 3.12761 12.0461C3.08176 12.0201 3.0533 11.9726 2.9964 11.8777L2.0152 10.2415C1.9551 10.1413 1.92505 10.0911 1.92505 10.0358C1.92505 9.9804 1.9551 9.93029 2.0152 9.83006L2.98951 8.20528C3.04963 8.10502 3.07969 8.0549 3.07969 7.99951C3.07968 7.94413 3.04961 7.89401 2.98946 7.79377L2.01529 6.17011C1.95514 6.06987 1.92507 6.01975 1.92507 5.96437C1.92506 5.90899 1.95512 5.85886 2.01524 5.7586L2.9964 4.1224C3.0533 4.0275 3.08176 3.98005 3.12761 3.95408C3.17347 3.92811 3.2288 3.92811 3.33945 3.92811H5.32977C5.44036 3.92811 5.49566 3.92811 5.54151 3.90216C5.58735 3.87621 5.61581 3.82879 5.67273 3.73397L6.6619 2.08599C6.71881 1.99116 6.74727 1.94375 6.79312 1.9178C6.83896 1.89185 6.89426 1.89185 7.00486 1.89185H8.99529C9.10588 1.89185 9.16118 1.89185 9.20703 1.9178C9.25287 1.94375 9.28133 1.99116 9.33825 2.08599L10.3274 3.73397C10.3843 3.82879 10.4128 3.87621 10.4586 3.90216C10.5045 3.92811 10.5598 3.92811 10.6704 3.92811H12.6607C12.7713 3.92811 12.8267 3.92811 12.8725 3.95408C12.9184 3.98005 12.9468 4.0275 13.0037 4.1224L13.9849 5.7586C14.045 5.85886 14.0751 5.90899 14.0751 5.96437C14.0751 6.01975 14.045 6.06987 13.9849 6.17011L13.0107 7.79377Z M8 9.75012C8.9665 9.75012 9.75 8.96662 9.75 8.00012C9.75 7.03362 8.9665 6.25012 8 6.25012C7.0335 6.25012 6.25 7.03362 6.25 8.00012C6.25 8.96662 7.0335 9.75012 8 9.75012Z'
 		};
 
 		function Icon(props) {
@@ -1622,19 +1644,26 @@ window.__ModuleLoader__.load({
 							'aria-valuenow': Math.round(shift.progress * 100),
 							'aria-label': t('stat.progress')
 						}, h('span', { className: 'knob', style: { left: (shift.progress * 100).toFixed(2) + '%' } })),
-						h('div', { className: 'pd-actions' },
-							h('button', {
-								type: 'button',
-								className: 'pd-btn',
-								onClick: function () { setOpen(true); setStep(1); }
-							}, t('action.configure'), h(Icon, { name: 'arrow', size: 13 }))
-						),
 						// The projection is worth trusting only if it says what it is
 						// projecting over, so the footer names the month and its actual
-						// working-day count rather than only an amount.
-						h('div', { className: 'pd-rate pd-foot' },
-							h('span', null, t('foot.monthTotal')),
-							h('span', { className: 'b' }, '¥' + formatMoney(pay.monthTotal))
+						// working-day count rather than only an amount. The settings
+						// affordance is a compact icon on the same row, which is all it
+						// needs: the three step names already say what settings holds.
+						h('div', { className: 'pd-foot-row' },
+							h('div', { className: 'pd-rate pd-foot' },
+								h('span', null, t('foot.monthTotal')),
+								h('span', { className: 'b' }, '¥' + formatMoney(pay.monthTotal))
+							),
+							h('button', {
+								type: 'button',
+								className: 'pd-gear',
+								title: t('action.configure'),
+								'aria-label': t('action.configure'),
+								onClick: function () { setOpen(true); setStep(1); }
+							},
+								h(Icon, { name: 'gear', size: 13, strokeWidth: 1.3 }),
+								h(Icon, { name: 'chevron', size: 11, strokeWidth: 1.5 })
+							)
 						),
 						h('div', { className: 'pd-foot-meta' },
 							h(Icon, { name: 'calendar', size: 11 }),
@@ -1856,6 +1885,7 @@ window.__ModuleLoader__.load({
 		/** Pure helpers and data exported for the headless regression tests. */
 		exports.__internal = {
 			CSS: CSS,
+			ICON_PATHS: PATHS,
 			DICTIONARIES: DICTIONARIES,
 			HOLIDAYS: HOLIDAYS,
 			MAKEUP_WORKDAYS: MAKEUP_WORKDAYS,
