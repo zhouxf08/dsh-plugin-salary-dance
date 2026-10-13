@@ -579,6 +579,83 @@ const frozen = driveTicker('2026-10-17T07:00:00', 4, { salaryMode: 'daily', dail
 check('休息日班前恒为 0', frozen.every((sample) => sample.shown === 0), 'true');
 
 /* ------------------------------------------------------------------ *
+ * 4c. Time popover placement
+ *
+ * "The popover is invisible" is what a placement bug looks like, so the placement
+ * is checked directly: inside the viewport horizontally, and flipped above the
+ * trigger when the window has no room below it.
+ * ------------------------------------------------------------------ */
+
+console.log('\n--- 时间弹层位置 ---');
+const POP_W = 196;
+const POP_H = api.POPOVER_HEIGHT;
+
+function fullRect(top, left, width, height) {
+  return { top, left, width, height, right: left + width, bottom: top + height };
+}
+
+function placeIn(viewport, rect) {
+  const previous = globalThis.window.innerWidth;
+  const previousHeight = globalThis.window.innerHeight;
+  globalThis.window.innerWidth = viewport.width;
+  globalThis.window.innerHeight = viewport.height;
+  const result = api.placePopover(fullRect(rect.top, rect.left, rect.width, rect.height), POP_W);
+  globalThis.window.innerWidth = previous;
+  globalThis.window.innerHeight = previousHeight;
+  return result;
+}
+
+const desktop = { width: 1440, height: 900 };
+
+// A trigger in the middle of the card: the popover hangs below and stays put.
+const mid = placeIn(desktop, { top: 340, left: 100, width: 132, height: 34 });
+check('常规位置在触发框下方', mid.top, 340 + 34 + 6);
+check('常规位置未翻转', mid.flip, 'false');
+check('弹层完整落在视口内（下）', mid.top + POP_H <= desktop.height, 'true');
+
+// A trigger near the bottom: flip above it rather than run off the window.
+const low = placeIn(desktop, { top: 720, left: 100, width: 132, height: 34 });
+check('贴底时翻转', low.flip, 'true');
+check('翻转后在触发框上方', low.top + POP_H <= 720, 'true');
+check('翻转后仍在视口内', low.top >= 0, 'true');
+
+// A trigger at either edge: the popover is pulled back inside the viewport.
+const leftEdge = placeIn(desktop, { top: 300, left: 4, width: 60, height: 34 });
+check('左边缘不越界', leftEdge.left >= 0, 'true');
+const rightEdge = placeIn(desktop, { top: 300, left: 1400, width: 60, height: 34 });
+check('右边缘不越界', rightEdge.left + POP_W <= desktop.width, 'true');
+
+// A narrow window: still inside, even though the card itself would overhang.
+const narrow = placeIn({ width: 420, height: 700 }, { top: 260, left: 300, width: 120, height: 34 });
+check('窄窗口内不越界', narrow.left >= 0 && narrow.left + POP_W <= 420, 'true');
+
+// A short window: the flip also keeps it on screen vertically.
+const short = placeIn({ width: 1200, height: 480 }, { top: 400, left: 500, width: 132, height: 34 });
+check('矮窗口内不越界', short.top >= 0 && short.top + POP_H <= 480, 'true');
+
+// The invisible-popover regression was a plain stylesheet property, so assert on
+// the stylesheet itself: a DOM test would have failed on exactly these rules.
+console.log('\n--- 弹层 CSS 约束 ---');
+// Comments are stripped first: one of them contains a brace, which would cut a
+// naive rule extractor short and make this check read the next rule instead.
+const CSS_NO_COMMENTS = api.CSS.replace(/\/\*[\s\S]*?\*\//g, '');
+function ruleBody(selector) {
+  const start = CSS_NO_COMMENTS.indexOf(selector + '{');
+  if (start < 0) return null;
+  return CSS_NO_COMMENTS.slice(start + selector.length + 1, CSS_NO_COMMENTS.indexOf('}', start));
+}
+const cardRule = ruleBody('.pd-card');
+const headRule = ruleBody('.pd-head');
+const popRule = ruleBody('.pd-pop');
+check('.pd-card 不再裁剪', /overflow\s*:\s*hidden/.test(cardRule), 'false');
+check('.pd-head 自己收圆角', /overflow\s*:\s*hidden/.test(headRule), 'true');
+check('.pd-pop 用 fixed 定位', /position\s*:\s*fixed/.test(popRule), 'true');
+check('.pd-pop 不再用 translateX', /translateX/.test(popRule), 'false');
+check('.pd-pop 具有高 z-index', Number((popRule.match(/z-index\s*:\s*(\d+)/) || [])[1]) > 1000, 'true');
+// The wheel columns ask for the fonts the card defines, so `t()` never leaks a key.
+check('弹层宽度与 placePopover 一致', Number((popRule.match(/width\s*:\s*(\d+)px/) || [])[1]), POP_W);
+
+/* ------------------------------------------------------------------ *
  * 5. Copy coverage: every rendered string resolves to a dictionary entry,
  *    and the two dictionaries carry the same key set.
  * ------------------------------------------------------------------ */

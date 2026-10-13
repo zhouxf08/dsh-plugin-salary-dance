@@ -434,9 +434,13 @@ window.__ModuleLoader__.load({
   border:0.5px solid var(--dsw-alias-border-l3,rgba(0,0,0,.12));
   background:var(--dsw-alias-bg-layer-2,#fff);
   box-shadow:var(--dsw-shadow-lv2,0 8px 28px rgba(16,24,40,.14));
-  overflow:hidden;
+  /* Deliberately not overflow:hidden: the time popovers hang outside the card,
+     and clipping them is what made them invisible. The header carries the only
+     full-bleed background, so it clips itself instead. */
 }
 .pd-head{
+  border-radius:calc(var(--dsw-radius-lg,14px) - 1px) calc(var(--dsw-radius-lg,14px) - 1px) 0 0;
+  overflow:hidden;
   display:flex;
   align-items:center;
   gap:8px;
@@ -700,12 +704,12 @@ window.__ModuleLoader__.load({
 }
 .pd-trigger .clock{ color:var(--dsw-alias-label-tertiary,#8a9099); display:inline-flex; flex:0 0 auto; }
 .pd-pop{
-  position:absolute;
-  z-index:5;
-  left:0;
-  margin-top:6px;
-  padding:8px 8px 10px;
+  /* Fixed, so the card cannot clip it and page scrolling cannot carry it away.
+     The position comes from the trigger's own rect, computed on open. */
+  position:fixed;
+  z-index:2147483000;
   width:196px;
+  padding:8px 8px 10px;
   box-sizing:border-box;
   border-radius:var(--dsw-radius-lg,14px);
   border:0.5px solid var(--dsw-alias-border-l3,rgba(0,0,0,.12));
@@ -1059,11 +1063,38 @@ window.__ModuleLoader__.load({
 			);
 		}
 
+		/** Approximate popover height: wheels (160) + padding + hint row. */
+		const POPOVER_HEIGHT = 196;
+
+		/**
+		 * Where a 196px popover should sit for a trigger at `rect`: centred on the
+		 * trigger, kept inside the viewport horizontally, and flipped above the
+		 * trigger when the space below cannot hold it.
+		 */
+		function placePopover(rect, width) {
+			const margin = 8;
+			const viewportWidth = typeof window === 'undefined' ? 1024 : window.innerWidth;
+			const viewportHeight = typeof window === 'undefined' ? 768 : window.innerHeight;
+			const top = rect.top + rect.height + 6;
+			const flip = top + POPOVER_HEIGHT > viewportHeight - margin;
+			const left = Math.min(
+				Math.max(rect.left + rect.width / 2 - width / 2, margin),
+				Math.max(margin, viewportWidth - width - margin)
+			);
+			return {
+				left: left,
+				top: flip ? Math.max(margin, rect.top - POPOVER_HEIGHT - 6) : top,
+				flip: flip
+			};
+		}
+
 		/** `HH:mm` field backed by the two scroll wheels. */
 		function TimePicker(props) {
 			const [open, setOpen] = React.useState(false);
 			const [draft, setDraft] = React.useState(props.value);
+			const [placement, setPlacement] = React.useState(null);
 			const rootRef = React.useRef(null);
+			const popRef = React.useRef(null);
 			const idPrefix = React.useRef('pdw' + Math.random().toString(36).slice(2, 8)).current;
 
 			const total = toMinutes(draft, 0);
@@ -1079,19 +1110,46 @@ window.__ModuleLoader__.load({
 				props.onChange(next);
 			}
 
-			// Opening re-reads the committed value, so a cancelled edit never lingers.
+			/** Anchor the fixed popover to the trigger's current box. */
+			function reposition() {
+				const node = rootRef.current;
+				if (node === null) return;
+				const trigger = node.querySelector('.pd-trigger');
+				if (trigger === null) return;
+				setPlacement(placePopover(trigger.getBoundingClientRect(), 196));
+			}
+
+			// Opening re-reads the committed value, so a cancelled edit never lingers,
+			// and measures where the popover should sit. Deliberately keyed on `open`
+			// alone: keying it on the value would re-measure on every wheel tick and
+			// fight the gesture.
 			React.useEffect(function () {
 				if (open) setDraft(props.value);
-			}, [open, props.value]);
+			}, [open]);
+
+			React.useEffect(function () {
+				if (!open) {
+					setPlacement(null);
+					return undefined;
+				}
+				reposition();
+				function onResize() { reposition(); }
+				window.addEventListener('resize', onResize);
+				return function () { window.removeEventListener('resize', onResize); };
+			}, [open]);
 
 			React.useEffect(function () {
 				if (!open) return undefined;
 				function onDown(event) {
-					if (rootRef.current !== null && !rootRef.current.contains(event.target)) setOpen(false);
+					const insideTrigger = rootRef.current !== null && rootRef.current.contains(event.target);
+					const insidePopover = popRef.current !== null && popRef.current.contains(event.target);
+					if (!insideTrigger && !insidePopover) setOpen(false);
 				}
 				function onKey(event) {
 					if (event.key === 'Escape') setOpen(false);
 				}
+				// The wheels take focus, so key handling stays on the document rather
+				// than on a wrapper the popover no longer lives inside.
 				document.addEventListener('pointerdown', onDown, true);
 				document.addEventListener('keydown', onKey);
 				return function () {
@@ -1120,7 +1178,15 @@ window.__ModuleLoader__.load({
 				open
 					? h(
 							'div',
-							{ className: 'pd-pop', role: 'dialog', 'aria-label': props.label },
+							{
+								className: 'pd-pop',
+								ref: popRef,
+								role: 'dialog',
+								'aria-label': props.label,
+								style: placement === null
+									? { visibility: 'hidden', left: 0, top: 0 }
+									: { left: placement.left + 'px', top: placement.top + 'px' }
+							},
 							h(
 								'div',
 								{ style: { position: 'relative' } },
@@ -1789,12 +1855,15 @@ window.__ModuleLoader__.load({
 		exports.SalaryDanceWidget = SalaryDanceWidget;
 		/** Pure helpers and data exported for the headless regression tests. */
 		exports.__internal = {
+			CSS: CSS,
 			DICTIONARIES: DICTIONARIES,
 			HOLIDAYS: HOLIDAYS,
 			MAKEUP_WORKDAYS: MAKEUP_WORKDAYS,
 			CALENDAR_YEARS: CALENDAR_YEARS,
 			monthWorkdays: monthWorkdays,
 			earnedAt: earnedAt,
+			placePopover: placePopover,
+			POPOVER_HEIGHT: POPOVER_HEIGHT,
 			dailyRate: dailyRate,
 			solveShift: solveShift,
 			computePay: computePay,
