@@ -61,7 +61,7 @@
   <text class="t cap" x="46" y="266">本月预计</text>
   <text class="t val" x="310" y="266" text-anchor="end">¥8000.00</text>
   <circle cx="62" cy="282" r="4" fill="none" stroke="#a8aeb6" stroke-width="1.1"/>
-  <text class="t" x="178" y="286" text-anchor="middle" font-size="10" fill="#8a9099">2026年10月 · 实际工作日 18 天</text>
+  <text class="t" x="178" y="286" text-anchor="middle" font-size="10" fill="#8a9099">2026年10月 · 实际工作日 18 天 · 日薪 444.44 元</text>
 
   <!-- ======================= RIGHT: settings panel ======================= -->
   <g filter="url(#card-shadow)">

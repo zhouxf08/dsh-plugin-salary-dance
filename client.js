@@ -556,10 +556,13 @@ window.__ModuleLoader__.load({
   margin-top:4px;
   font-size:10px;
   line-height:14px;
+  white-space:nowrap;
   color:var(--dsw-alias-label-tertiary,#8a9099);
   font-variant-numeric:tabular-nums;
 }
 .pd-foot-meta svg{ flex:0 0 auto; }
+.pd-foot-meta .lead{ font-weight:600; color:var(--dsw-alias-label-secondary,#4a505a); }
+.pd-foot-meta > span + span::before{ content:'·'; margin-right:5px; color:var(--dsw-alias-border-l3,rgba(0,0,0,.25)); }
 .pd-actions{ display:flex; gap:8px; margin-top:12px; }
 .pd-btn{
   flex:1 1 auto;
@@ -1245,6 +1248,12 @@ window.__ModuleLoader__.load({
 			// arrives late still shows the amount true for its own instant. In hourly
 			// mode the day's value follows the configured shift, so a short day pays
 			// less rather than a full shift's worth.
+			// The footer describes the *monthly* basis, so its daily figure is always
+			// the monthly-derived one: monthly ÷ working days. In daily or hourly mode
+			// that differs from the mode's own daily value, and showing the monthly one
+			// here is what makes `月薪 ÷ 天数` check out against the projection above.
+			const basisConfig = Object.assign({}, config, { salaryMode: 'monthly' });
+			const basisDaily = dailyRate(basisConfig, actual, shift.hoursPerDay);
 			const liveEarned = earnedAt(config, new Date());
 			const earnedNow = config.salaryMode === 'hourly' ? pay.hourly * (shift.servedMin / 60) : liveEarned;
 			const shownProjected = allowed ? pay.daily : earnedNow;
@@ -1563,11 +1572,19 @@ window.__ModuleLoader__.load({
 						),
 						h('div', { className: 'pd-foot-meta' },
 							h(Icon, { name: 'calendar', size: 11 }),
-							h('span', null, t('foot.basis')
-								.replace('{year}', String(now.getFullYear()))
-								.replace('{month}', String(now.getMonth() + 1))
+							h('span', { className: 'lead' },
+								t('foot.basisDate')
+									.replace('{year}', String(now.getFullYear()))
+									.replace('{month}', String(now.getMonth() + 1))
+							),
+							h('span', null, t('foot.basisDays')
 								.replace('{days}', String(pay.workdays))
-								.replace('{unit}', t('unit.days')))
+								.replace('{unit}', t('unit.days'))
+							),
+							h('span', null, t('foot.basisDaily')
+								.replace('{amount}', formatMoney(basisDaily))
+								.replace('{unit}', t('unit.yuan'))
+							)
 						)
 					);
 
@@ -1603,7 +1620,9 @@ window.__ModuleLoader__.load({
 				'action.done': '完成配置，开始使用',
 				'action.collapse': '收起',
 				'foot.monthTotal': '本月预计',
-				'foot.basis': '{year}年{month}月 · 实际工作日 {days} {unit}',
+				'foot.basisDate': '{year}年{month}月',
+				'foot.basisDays': '实际工作日 {days} {unit}',
+				'foot.basisDaily': '日薪 {amount} {unit}',
 				'step.salary': '薪资模式',
 				'step.time': '工作时间',
 				'step.prefs': '使用偏好',
@@ -1682,7 +1701,9 @@ window.__ModuleLoader__.load({
 				'action.done': 'Finish and start',
 				'action.collapse': 'Collapse',
 				'foot.monthTotal': 'Month estimate',
-				'foot.basis': '{month}/{year} · {days} working {unit}',
+				'foot.basisDate': '{month}/{year}',
+				'foot.basisDays': '{days} working {unit}',
+				'foot.basisDaily': '{amount} {unit}/day',
 				'step.salary': 'Pay mode',
 				'step.time': 'Work hours',
 				'step.prefs': 'Preferences',

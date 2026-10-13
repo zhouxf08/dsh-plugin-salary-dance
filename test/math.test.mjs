@@ -477,14 +477,26 @@ check('2026-10 列出国庆节', hasText(withCalendar, '本月节假日：国庆
 const octCard = render('2026-10-14T10:00:00', { monthlySalary: 8000 });
 check('底部注明 2026 年 10 月', hasText(octCard, '2026年10月'), 'true');
 check('底部注明实际工作日 18 天', hasText(octCard, '实际工作日 18 天'), 'true');
+check('底部注明日薪', hasText(octCard, '日薪 444.44 元'), 'true');
 check('底部注明本月预计', hasText(octCard, '本月预计'), 'true');
 
+// The basis line has to agree with the projection it explains: in monthly mode
+// the card's own daily figure is the same monthly-derived one.
+check('底部日薪与今日预计一致', hasText(octCard, '¥444.44'), 'true');
+
 const febCard = render('2026-02-10T10:00:00', { monthlySalary: 8000 });
-check('二月底部注明 16 天', hasText(febCard, '2026年2月 · 实际工作日 16 天'), 'true');
+check('二月底部注明 16 天', hasText(febCard, '实际工作日 16 天'), 'true');
+check('二月底部日薪 500 元', hasText(febCard, '日薪 500.00 元'), 'true');
 
 // A manual override has to be reflected in that same line.
 const manualCard = render('2026-10-14T10:00:00', { monthlySalary: 8000, manualWorkdays: 20 });
 check('手填 20 天时底部跟着变', hasText(manualCard, '实际工作日 20 天'), 'true');
+check('手填 20 天时日薪 400 元', hasText(manualCard, '日薪 400.00 元'), 'true');
+
+// In daily mode the footer states the monthly-derived figure, not the daily rate
+// the mode itself uses, because the footer explains the monthly projection.
+const dailyModeCard = render('2026-10-14T10:00:00', { salaryMode: 'daily', dailySalary: 500 });
+check('日薪模式下底部仍说明月度口径', hasText(dailyModeCard, '日薪 444.44 元'), 'true');
 
 const february = renderPanel('2026-02-10T10:00:00', { monthlySalary: 8000 });
 check('2026-02 显示春节', hasText(february, '本月节假日：春节'), 'true');
