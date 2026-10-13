@@ -17,6 +17,8 @@ window.__ModuleLoader__.load({
 
 		const NS = 'salarydance';
 		const STYLE_TAG_ID = 'dsh-plugin-salary-dance/widget.css';
+		// A persistence contract: keep it in step with PACKAGE_NAME, since changing it
+		// discards every existing user's saved configuration.
 		const STORAGE_KEY = PACKAGE_NAME + '/config.v1';
 
 		/* ------------------------------------------------------------------ *

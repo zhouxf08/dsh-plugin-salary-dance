@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "SalaryDance",
-    "description": "An always-on salary ticker in the top-right corner: today's earnings, work progress, time to off-work and today's estimate, with a three-step settings panel."
+    "description": "An always-on salary ticker in the top-right corner: today's earnings (ticking to four decimals), today's estimate, time to off-work and the current hourly rate, with a two-step settings panel (pay mode / work hours) and the month's holiday calendar."
   }
 }

@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 700" width="760" height="700" role="img" aria-label="薪跳 SalaryDance 界面结构示意图">
   <title>薪跳 SalaryDance 界面结构示意图</title>
-  <desc>左侧是常驻右上角的悬浮卡片：今日入账（4 位小数逐帧跳动）、已工作、距离下班、今日预计、当前时薪与本月的口径行，下面是滚动时间选择器的特写。右侧是三步设置面板：薪资模式、工作时间（当月工作日历 + 滚动时间选择器）、使用偏好。</desc>
+  <desc>左侧是常驻右上角的悬浮卡片：今日入账（4 位小数逐帧跳动）、已工作、距离下班、今日预计、当前时薪与本月的口径行，下面是滚动时间选择器的特写。右侧是两步设置面板：薪资模式、工作时间（当月工作日历 + 滚动时间选择器）；主题与精简模式是卡片顶部两个图标。</desc>
 
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
@@ -108,10 +108,6 @@
     <circle cx="498" cy="92" r="9.5" fill="url(#accent)"/>
     <text x="498" y="96" text-anchor="middle" font-size="11" font-weight="700" fill="#ffffff">2</text>
     <text x="514" y="96" font-size="12" font-weight="600" fill="#16181d">工作时间</text>
-    <line x1="572" y1="92" x2="598" y2="92" stroke="#dfe7f2"/>
-    <circle cx="614" cy="92" r="9.5" fill="url(#accent)"/>
-    <text x="614" y="96" text-anchor="middle" font-size="11" font-weight="700" fill="#ffffff">3</text>
-    <text x="630" y="96" font-size="12" font-weight="600" fill="#16181d">使用偏好</text>
   </g>
 
   <!-- ---------- step 1 ---------- -->
@@ -209,15 +205,12 @@
     <text class="cap" x="374" y="578">午休 12:00–13:00（可关）· 跨夜班次：下班早于上班即视为次日</text>
   </g>
 
-  <!-- ---------- step 3 ---------- -->
+  <!-- 第三步已移除：主题与精简模式是卡片顶部两个图标 -->
   <g class="t">
     <line x1="352" y1="598" x2="732" y2="598" stroke="#f1f5fb"/>
-    <text class="lbl" x="374" y="620">主题</text>
-    <rect x="374" y="628" width="336" height="30" rx="9" fill="#f1f4f9"/>
-    <rect x="378" y="632" width="104" height="22" rx="7" fill="#ffffff" stroke="#e8eef7"/>
-    <text x="430" y="647" text-anchor="middle" font-size="11.5" font-weight="600" fill="#16181d">浅色</text>
-    <text x="540" y="647" text-anchor="middle" font-size="11.5" fill="#4a505a">深色</text>
-    <text x="650" y="647" text-anchor="middle" font-size="11.5" fill="#4a505a">跟随系统</text>
+    <text class="lbl" x="374" y="620">主题与精简模式不再占面板位置</text>
+    <text class="cap" x="374" y="640">卡片顶部三个图标：☀ 主题循环（浅色 / 深色 / 跟随系统）· ▢ 精简模式 · ⚙ 设置</text>
+    <text class="cap" x="374" y="658">面板只剩两步：薪资模式 → 工作时间</text>
   </g>
 
   <text class="t cap" x="380" y="690" text-anchor="middle">薪跳 SalaryDance · DSH Web 界面插件 · 结构示意图（非运行截图）</text>

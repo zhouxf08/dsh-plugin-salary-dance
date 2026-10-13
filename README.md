@@ -46,10 +46,10 @@
 ### 方式一：命令行（推荐）
 
 ```bash
-dsh plugin --profile desktop add github:OWNER/dsh-plugin-salary-dance
+dsh plugin --profile desktop add github:zhouxf08/dsh-plugin-salary-dance
 ```
 
-把 `desktop` 换成你要装进去的 profile 名，`OWNER` 换成仓库所属账号。
+把 `desktop` 换成你要装进去的 profile 名，上面的账号就是 `zhouxf08`。
 
 也可以直接用包名从 npm 装（如果你是从 npm 安装的）:
 
@@ -67,7 +67,7 @@ dsh plugin --profile desktop add dsh-plugin-salary-dance
 侧边栏 **Plugins → Add plugin**，填入：
 
 ```
-github:OWNER/dsh-plugin-salary-dance
+github:zhouxf08/dsh-plugin-salary-dance
 ```
 
 安装向导会读取包信息、跑 pnpm、并把 bundle 加进当前 profile。装完同样需要重启一次。
@@ -183,7 +183,7 @@ D = 本月周一至周五的天数
 ```
 dsh-plugin-salary-dance/
 ├── package.json          # bundle 清单：dsh.bundle.patch + dsh.client
-├── cordis.patch.yml      # 向 profile 插入 id 为 salarydance 的 Loader row
+├── cordis.patch.yml      # 向 profile 插入 id 为 salarydance 的 Loader row（row id 稳定不变）
 ├── index.js              # Host 半：空实现（整个功能在浏览器侧）
 ├── client.js             # 浏览器半：卡片 + 设置面板 + 全部计算
 ├── icon.svg              # 插件管理器卡片图标
@@ -209,6 +209,7 @@ DSH 把界面插件组织成 **bundle**：一个 npm 包只要在 `package.json`
 ```
 
 - `cordis.patch.yml` 插入一行 `id: salarydance`、`name: dsh-plugin-salary-dance`。
+  row id 与包名是两个东西：id 是配置覆盖用的稳定锚点，改包名时刻意不动它。
 - `index.js` 是 Host 半，导出 `apply()`；这里刻意什么都不做，让 bundle 在没有任何 Web 载体的 Host 上也合法。
 - `client.js` 是浏览器半，用 `window.__ModuleLoader__.load({ id, factory })` 注册工厂，`apply(ctx)` 里：
   - `ctx.effect(installStyles)` 注入样式表；
@@ -222,7 +223,7 @@ DSH 把界面插件组织成 **bundle**：一个 npm 包只要在 `package.json`
 ## 开发
 
 ```bash
-git clone https://github.com/OWNER/dsh-plugin-salary-dance.git
+git clone https://github.com/zhouxf08/dsh-plugin-salary-dance.git
 cd dsh-plugin-salary-dance
 
 # 口径回归测试（不需要浏览器、无依赖）
