@@ -765,6 +765,69 @@ const cssNoCommentsForSeal = api.CSS.replace(/\/\*[\s\S]*?\*\//g, '');
 check('样式表已移除 .pd-seal', cssNoCommentsForSeal.includes('.pd-seal'), 'false');
 
 /* ------------------------------------------------------------------ *
+ * 4i. The compact (mini float) view
+ *
+ * It used to be a single bare amount, which said nothing about pace or place in
+ * the day. The checks are scoped to the mini subtree so a figure that only the
+ * full card renders cannot make them pass.
+ * ------------------------------------------------------------------ */
+
+console.log('\n--- 精简模式 ---');
+function miniTree(iso, patch) {
+  const config = Object.assign({}, api.DEFAULT_CONFIG, patch || {}, { miniFloat: true });
+  const frozen = new Date(iso);
+  // Slots: [config, open, step, now, tick, pos]. `open` false keeps mini mode.
+  return render(iso, null, [config, false, 1, frozen]);
+}
+
+/** All text under the first node of `className`. */
+function textUnder(tree, className) {
+  const node = nodeByClass(tree, className);
+  return node === null ? null : allText(node).join('');
+}
+
+// Derived rather than typed in: 09:00-18:00 with a 12:00-13:00 break means one
+// hour served by 10:00, so the amount is the daily rate's eighth.
+const MINI_AT = '2026-10-14T10:00:00';
+const MINI_PATCH = { monthlySalary: 8000 };
+const miniTruth = api.earnedAt(Object.assign({}, api.DEFAULT_CONFIG, MINI_PATCH), new Date(MINI_AT));
+const miniDaily = api.dailyRate(
+  Object.assign({}, api.DEFAULT_CONFIG, MINI_PATCH),
+  api.monthWorkdays(2026, 9, [1, 2, 3, 4, 5]),
+  8
+);
+const miniProgress = Math.round((api.solveShift(Object.assign({}, api.DEFAULT_CONFIG, MINI_PATCH), new Date(MINI_AT)).servedMin / 480) * 100);
+
+const mini = miniTree(MINI_AT, MINI_PATCH);
+const miniText = textUnder(mini, 'pd-mini');
+check('精简模式渲染出来', miniText !== null, 'true');
+check('精简模式显示今日入账（两位）', miniText.includes('¥' + (Math.floor(miniTruth * 100) / 100).toFixed(2)), 'true');
+check('精简模式显示时薪', miniText.includes('¥55.5556'), 'true');
+check('精简模式显示今日预计', miniText.includes('¥' + miniDaily.toFixed(2)), 'true');
+check('精简模式有进度条', nodeByClass(mini, 'pd-mini-bar') !== null, 'true');
+check('精简模式进度值正确', nodeByClass(mini, 'pd-mini-bar').props['aria-valuenow'], miniProgress);
+check('精简模式不渲染完整卡片', nodeByClass(mini, 'pd-amount'), 'null');
+check('精简模式不渲染统计三栏', nodeByClass(mini, 'pd-stats'), 'null');
+
+// The three figures must be distinguishable. Matching on "55.5" would not prove
+// anything here — the amount happens to be 55.56 — so the amount region is read
+// as a whole number: it must be the two-decimal figure and nothing else.
+const miniMainText = textUnder(mini, 'pd-mini-main');
+check('金额区只有这一个数字', miniMainText, '¥' + (Math.floor(miniTruth * 100) / 100).toFixed(2));
+check('金额区不是四位小数', /\.\d{4}/.test(miniMainText), 'false');
+check('费率在右侧指标区', textUnder(mini, 'pd-mini-metrics').includes('¥55.5556'), 'true');
+check('预计在右侧指标区', textUnder(mini, 'pd-mini-metrics').includes('¥' + miniDaily.toFixed(2)), 'true');
+
+// A day off projects only what has been earned, matching the full card.
+const miniOff = miniTree('2026-10-17T07:00:00', { salaryMode: 'daily', dailySalary: 500 });
+check('休息日班前精简模式为 0', /¥0\.00/.test(textUnder(miniOff, 'pd-mini')), 'true');
+
+// Turning mini mode off restores the full card.
+const full = render('2026-10-14T10:00:00', { monthlySalary: 8000, miniFloat: false });
+check('关掉精简模式即完整卡片', nodeByClass(full, 'pd-amount') !== null, 'true');
+check('关掉精简模式无进度条', nodeByClass(full, 'pd-mini-bar'), 'null');
+
+/* ------------------------------------------------------------------ *
  * 4h. The month calendar
  *
  * The work week is no longer a choice: the month is shown with the statutory days

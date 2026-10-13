@@ -697,14 +697,26 @@ window.__ModuleLoader__.load({
 }
 .pd-btn.ghost:hover{ background:var(--dsw-alias-interactive-bg-active,rgba(0,0,0,.09)); }
 .pd-mini{
-  display:flex;align-items:center;gap:6px;
-  padding:6px 12px 8px;
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:2px 12px 10px;
   cursor:pointer;
   user-select:none;
 }
-.pd-mini .v{ font-size:15px;font-weight:700;font-variant-numeric:tabular-nums; }
-.pd-mini .sym{ font-size:11px;font-weight:600;opacity:.8; }
-.pd-mini .cap{ font-size:10.5px;color:var(--dsw-alias-label-tertiary,#8a9099); }
+.pd-mini-main{ display:flex;align-items:baseline;gap:1px; flex:0 0 auto; }
+.pd-mini .v{ font-size:19px;font-weight:700;font-variant-numeric:tabular-nums; letter-spacing:-.01em; }
+.pd-mini .sym{ font-size:13px;font-weight:600;opacity:.8; }
+/* Two stacked figures: the pace, and where the day lands. */
+.pd-mini-metrics{ display:flex; flex-direction:column; gap:3px; align-items:flex-end; }
+.pd-mini-metrics > div{ display:flex; align-items:baseline; gap:5px; }
+.pd-mini-metrics .k{ font-size:9.5px; color:var(--dsw-alias-label-tertiary,#8a9099); }
+.pd-mini-metrics b{
+  font-size:11px; font-weight:600;
+  color:var(--dsw-alias-label-secondary,#4a505a);
+  font-variant-numeric:tabular-nums;
+}
+/* How far through the shift, drawn at the card's bottom edge. */
+.pd-mini-bar{ height:3px; background:var(--dsw-alias-border-l1,rgba(0,0,0,.07)); }
+.pd-mini-bar .fill{ display:block; height:100%; background:var(--dsw-alias-brand-primary,#f68b1f); }
 .pd-panel{
   padding:0 14px 14px;
   /* The calendar makes step 2 tall; on a short window the panel scrolls rather
@@ -1432,6 +1444,17 @@ window.__ModuleLoader__.load({
 			const allowed = config.workDays.indexOf(isoWeekday(now.getDay())) >= 0;
 			const shift = solveShift(config, now);
 			const pay = computePay(config, now, actual, shift.hoursPerDay);
+			// The projection's own daily rate, which is monthly-derived by definition.
+			const basisConfig = Object.assign({}, config, { salaryMode: 'monthly' });
+			const basisDaily = dailyRate(basisConfig, actual, shift.hoursPerDay);
+			// The figure shown, priced at this render. `tick` is what schedules the
+			// render; it is deliberately not part of the arithmetic, so a render that
+			// arrives late still shows the amount true for its own instant. In hourly
+			// mode the day's value follows the configured shift, so a short day pays
+			// less rather than a full shift's worth.
+			const liveEarned = earnedAt(config, new Date());
+			const earnedNow = config.salaryMode === 'hourly' ? pay.hourly * (shift.servedMin / 60) : liveEarned;
+			const shownProjected = allowed ? pay.daily : earnedNow;
 			// The true amount at this instant. The animation prices its own instant
 			// through the same helper, so the two can never disagree.
 			const earned = earnedAt(config, now);
@@ -1471,20 +1494,6 @@ window.__ModuleLoader__.load({
 
 			// The display may lag the true amount while catching up, so the projection
 			// stat uses the true figure.
-			// The figure shown, priced at this render. `tick` is what schedules the
-			// render; it is deliberately not part of the arithmetic, so a render that
-			// arrives late still shows the amount true for its own instant. In hourly
-			// mode the day's value follows the configured shift, so a short day pays
-			// less rather than a full shift's worth.
-			// The footer describes the *monthly* basis, so its daily figure is always
-			// the monthly-derived one: monthly ÷ working days. In daily or hourly mode
-			// that differs from the mode's own daily value, and showing the monthly one
-			// here is what makes `月薪 ÷ 天数` check out against the projection above.
-			const basisConfig = Object.assign({}, config, { salaryMode: 'monthly' });
-			const basisDaily = dailyRate(basisConfig, actual, shift.hoursPerDay);
-			const liveEarned = earnedAt(config, new Date());
-			const earnedNow = config.salaryMode === 'hourly' ? pay.hourly * (shift.servedMin / 60) : liveEarned;
-			const shownProjected = allowed ? pay.daily : earnedNow;
 			// Four decimals, like the rate: at a typical hourly rate the last digit
 			// turns over every few milliseconds, so the line is visibly alive on every
 			// animation frame rather than only when a cent lands.
@@ -1901,6 +1910,7 @@ window.__ModuleLoader__.load({
 				'stat.worked': '已工作',
 				'stat.remaining': '距离下班',
 				'stat.projected': '今日预计',
+				'stat.rate': '时薪',
 				'stat.progress': '今日工作进度',
 				'unit.hour': '时',
 				'unit.days': '天',
@@ -1986,6 +1996,7 @@ window.__ModuleLoader__.load({
 				'stat.worked': 'Worked',
 				'stat.remaining': 'Until off-work',
 				'stat.projected': "Today's estimate",
+				'stat.rate': 'Rate',
 				'stat.progress': "Today's work progress",
 				'unit.hour': 'h',
 				'unit.days': 'days',
