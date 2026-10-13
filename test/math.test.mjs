@@ -472,6 +472,20 @@ check('2026-10 显示 18 个工作日', hasText(withCalendar, '实际工作日 1
 check('2026-10 显示时薪', hasText(withCalendar, '折合时薪 ¥55.5556'), 'true');
 check('2026-10 列出国庆节', hasText(withCalendar, '本月节假日：国庆节'), 'true');
 
+// The card's footer must name the month it projects and its working-day basis,
+// so a projection can be checked against the calendar rather than taken on trust.
+const octCard = render('2026-10-14T10:00:00', { monthlySalary: 8000 });
+check('底部注明 2026 年 10 月', hasText(octCard, '2026年10月'), 'true');
+check('底部注明实际工作日 18 天', hasText(octCard, '实际工作日 18 天'), 'true');
+check('底部注明本月预计', hasText(octCard, '本月预计'), 'true');
+
+const febCard = render('2026-02-10T10:00:00', { monthlySalary: 8000 });
+check('二月底部注明 16 天', hasText(febCard, '2026年2月 · 实际工作日 16 天'), 'true');
+
+// A manual override has to be reflected in that same line.
+const manualCard = render('2026-10-14T10:00:00', { monthlySalary: 8000, manualWorkdays: 20 });
+check('手填 20 天时底部跟着变', hasText(manualCard, '实际工作日 20 天'), 'true');
+
 const february = renderPanel('2026-02-10T10:00:00', { monthlySalary: 8000 });
 check('2026-02 显示春节', hasText(february, '本月节假日：春节'), 'true');
 check('2026-02 显示 16 个工作日', hasText(february, '实际工作日 16 天'), 'true');

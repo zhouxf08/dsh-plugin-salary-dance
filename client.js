@@ -478,7 +478,7 @@ window.__ModuleLoader__.load({
 }
 .pd-iconbtn:hover{ background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.06)); color:var(--dsw-alias-label-primary,#16181d); }
 .pd-iconbtn:focus-visible{ outline:2px solid var(--dsw-alias-state-business-primary,#4a90e2); outline-offset:1px; }
-.pd-body{ padding:0 14px 12px; }
+.pd-body{ padding:0 14px 11px; }
 .pd-caption{
   display:flex;
   align-items:center;
@@ -549,6 +549,17 @@ window.__ModuleLoader__.load({
   font-variant-numeric:tabular-nums;
 }
 .pd-rate .b{ color:var(--dsw-alias-label-secondary,#4a505a); font-weight:600; }
+/* The projection's fine print: which month, and how many working days it uses. */
+.pd-foot{ margin-top:10px; }
+.pd-foot-meta{
+  display:flex;align-items:center;justify-content:center;gap:5px;
+  margin-top:4px;
+  font-size:10px;
+  line-height:14px;
+  color:var(--dsw-alias-label-tertiary,#8a9099);
+  font-variant-numeric:tabular-nums;
+}
+.pd-foot-meta svg{ flex:0 0 auto; }
 .pd-actions{ display:flex; gap:8px; margin-top:12px; }
 .pd-btn{
   flex:1 1 auto;
@@ -827,7 +838,8 @@ window.__ModuleLoader__.load({
 			pin: 'M6 2 H10 M8 2 V9 M4.5 9 H11.5 L8 14 Z',
 			window: 'M2.5 3.5 H13.5 V12.5 H2.5 Z M2.5 6.5 H13.5',
 			power: 'M8 2.5 V7.5 M4.4 4.6 A4.6 4.6 0 1 0 11.6 4.6',
-			clock: 'M8 2.5 A5.5 5.5 0 1 1 7.99 2.5 M8 4.6 V8 L10.2 9.4'
+			clock: 'M8 2.5 A5.5 5.5 0 1 1 7.99 2.5 M8 4.6 V8 L10.2 9.4',
+			calendar: 'M2.5 4 H13.5 V13 H2.5 Z M2.5 6.8 H13.5 M5.5 2.5 V5 M10.5 2.5 V5'
 		};
 
 		function Icon(props) {
@@ -1542,9 +1554,20 @@ window.__ModuleLoader__.load({
 								onClick: function () { setOpen(true); setStep(1); }
 							}, t('action.configure'), h(Icon, { name: 'arrow', size: 13 }))
 						),
-						h('div', { className: 'pd-rate' },
-							h('span', null, t('foot.month').replace('{month}', pay.monthLabel)),
+						// The projection is worth trusting only if it says what it is
+						// projecting over, so the footer names the month and its actual
+						// working-day count rather than only an amount.
+						h('div', { className: 'pd-rate pd-foot' },
+							h('span', null, t('foot.monthTotal')),
 							h('span', { className: 'b' }, '¥' + formatMoney(pay.monthTotal))
+						),
+						h('div', { className: 'pd-foot-meta' },
+							h(Icon, { name: 'calendar', size: 11 }),
+							h('span', null, t('foot.basis')
+								.replace('{year}', String(now.getFullYear()))
+								.replace('{month}', String(now.getMonth() + 1))
+								.replace('{days}', String(pay.workdays))
+								.replace('{unit}', t('unit.days')))
 						)
 					);
 
@@ -1579,7 +1602,8 @@ window.__ModuleLoader__.load({
 				'action.back': '上一步',
 				'action.done': '完成配置，开始使用',
 				'action.collapse': '收起',
-				'foot.month': '{month}预计',
+				'foot.monthTotal': '本月预计',
+				'foot.basis': '{year}年{month}月 · 实际工作日 {days} {unit}',
 				'step.salary': '薪资模式',
 				'step.time': '工作时间',
 				'step.prefs': '使用偏好',
@@ -1657,7 +1681,8 @@ window.__ModuleLoader__.load({
 				'action.back': 'Back',
 				'action.done': 'Finish and start',
 				'action.collapse': 'Collapse',
-				'foot.month': '{month} estimate',
+				'foot.monthTotal': 'Month estimate',
+				'foot.basis': '{month}/{year} · {days} working {unit}',
 				'step.salary': 'Pay mode',
 				'step.time': 'Work hours',
 				'step.prefs': 'Preferences',
