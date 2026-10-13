@@ -507,9 +507,11 @@ window.__ModuleLoader__.load({
   font-variant-numeric:tabular-nums;
   color:var(--dsw-alias-label-primary,#16181d);
 }
-.pd-amount .sym{ font-size:19px; font-weight:600; opacity:.82; }
-.pd-amount .int{ font-size:31px; font-weight:700; letter-spacing:-.02em; line-height:1.05; }
-.pd-amount .frac{ font-size:19px; font-weight:600; opacity:.82; }
+.pd-amount .sym{ font-size:17px; font-weight:600; opacity:.82; }
+.pd-amount .int{ font-size:28px; font-weight:700; letter-spacing:-.02em; line-height:1.05; }
+/* Four decimals sit slightly smaller so the whole figure stays on one line and
+   the turning tail stays legible. */
+.pd-amount .frac{ font-size:16px; font-weight:600; opacity:.7; }
 .pd-stats{
   display:grid;
   grid-template-columns:repeat(3,1fr);
@@ -1151,11 +1153,10 @@ window.__ModuleLoader__.load({
 			const [open, setOpen] = React.useState(false);
 			const [step, setStep] = React.useState(1);
 			const [now, setNow] = React.useState(function () { return new Date(); });
-			const [liquid, setLiquid] = React.useState(null);
+			const [tick, setTick] = React.useState(0);
 			const [pos, setPos] = React.useState({ right: 20, top: 56 });
 			const rootRef = React.useRef(null);
 			const dragRef = React.useRef(null);
-			const targetRef = React.useRef(null);
 
 			// One one-second heartbeat drives the whole card. It stops while the card
 			// sits in mini mode, so an idle page stays quiet.
@@ -1194,51 +1195,28 @@ window.__ModuleLoader__.load({
 			const served = formatDuration(shift.servedMin);
 			const remaining = formatDuration(shift.remainingMin);
 
-			// Countdown motion. The one-second heartbeat recomputes `earned`; an
-			// animation loop advances the figure shown on the card so it slides
-			// instead of stepping.
+			// Countdown motion.
 			//
-			// Two constraints shape this. The loop must always read the *current*
-			// target rather than a captured one, or the figure lags a whole tick
-			// behind and the last digits appear frozen. And the figure may only lag
-			// the true amount, never lead it: an earlier version interpolated with
-			// the frame budget as its ratio and the last rendered value as its base,
-			// a geometric series that converged to well under the true amount, so a
-			// bigger true delta made the rendered figure move *less*.
-			// The loop may be torn down and restarted between frames, so the "latest
-			// requested handle" lives in a ref rather than a closure variable, and the
-			// config is read through a ref so the loop never captures a stale one.
+			// `earnedAt(config, date)` keeps milliseconds, so the amount is already a
+			// continuous function of the clock: nothing needs interpolating, it only
+			// has to be *read* often and priced at render time. A one-frame counter
+			// re-renders the card, and the figure is then derived from the live clock.
+			//
+			// Two rules keep that honest. The heartbeat (once a second) owns everything
+			// month-shaped: the working-day count, the rates, the day-off status. And
+			// the displayed figure is rounded *down* rather than to nearest, so the card
+			// can never claim an amount that has not been earned yet.
 			const rafRef = React.useRef(null);
-			const configRef = React.useRef(config);
-			configRef.current = config;
 
 			React.useEffect(function () {
 				if (config.miniFloat && !open) return undefined;
 				const reduce = typeof window.matchMedia === 'function'
 					&& window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-				if (reduce) {
-					setLiquid(targetRef.current);
-					return undefined;
-				}
-				// `null`, not 0: a rAF timestamp legitimately starts at zero on a fresh
-				// page, so zero cannot mark "no previous frame".
-				let last = null;
-				function frame(timestamp) {
-					const previousFrame = last;
-					last = timestamp;
-					const elapsed = previousFrame === null ? 0 : Math.min(timestamp - previousFrame, 1000);
-					// Price this instant from the clock rather than from the last
-					// heartbeat, so a frame landing just after a tick can never jump the
-					// figure past the amount actually earned.
-					const current = earnedAt(configRef.current, new Date());
-					setLiquid(function (previous) {
-						const base = previous === null ? current : previous;
-						if (base >= current) return current;
-						// Catch up at the real rate, with a floor so the last cent still
-						// moves, and bounded so a long suspension cannot jump the figure.
-						const gain = (current / 28800) * (elapsed / 1000);
-						return Math.min(current, base + Math.max(gain, (current - base) * 0.08));
-					});
+				// Under reduced motion the second heartbeat is enough; otherwise the
+				// counter advances once per frame, which is what makes the tail turn.
+				if (reduce) return undefined;
+				function frame() {
+					setTick(function (previous) { return previous + 1; });
 					rafRef.current = window.requestAnimationFrame(frame);
 				}
 				rafRef.current = window.requestAnimationFrame(frame);
@@ -1248,14 +1226,20 @@ window.__ModuleLoader__.load({
 				};
 			}, [config.miniFloat, open]);
 
-			// The card shows the live figure rather than the whole-second one. The
-			// heartbeat still refreshes the month-level state (working-day count,
-			// rates, day-off status), which is all that changes once a second.
-			const shownEarned = config.miniFloat && !open ? earned : Math.max(earned, liquid === null ? 0 : liquid);
 			// The display may lag the true amount while catching up, so the projection
 			// stat uses the true figure.
-			const shownProjected = allowed ? pay.daily : earned;
-			const money = formatMoney(shownEarned);
+			// The figure shown, priced at this render. `tick` is what schedules the
+			// render; it is deliberately not part of the arithmetic, so a render that
+			// arrives late still shows the amount true for its own instant. In hourly
+			// mode the day's value follows the configured shift, so a short day pays
+			// less rather than a full shift's worth.
+			const liveEarned = earnedAt(config, new Date());
+			const earnedNow = config.salaryMode === 'hourly' ? pay.hourly * (shift.servedMin / 60) : liveEarned;
+			const shownProjected = allowed ? pay.daily : earnedNow;
+			// Four decimals, like the rate: at a typical hourly rate the last digit
+			// turns over every few milliseconds, so the line is visibly alive on every
+			// animation frame rather than only when a cent lands.
+			const money = formatMoney(Math.floor(earnedNow * 10000) / 10000, 4);
 			const moneyParts = money.split('.');
 			const hourlyText = formatMoney(pay.hourly, 4);
 

@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 620" width="760" height="620" role="img" aria-label="薪跳 SalaryDance 界面结构示意图">
   <title>薪跳 SalaryDance 界面结构示意图</title>
-  <desc>左侧是常驻右上角的悬浮卡片：今日入账、已工作、距离下班、今日预计、工作进度、当前时薪与本月预计。右侧是点开后三步设置面板：薪资模式（含按月实际工作日折算的时薪）、工作时间（含滚动时间选择器）、使用偏好。</desc>
+  <desc>左侧是常驻右上角的悬浮卡片：今日入账（4 位小数，逐帧跳动）、已工作、距离下班、今日预计、工作进度、当前时薪与本月预计。右侧是点开后三步设置面板：薪资模式（含按月实际工作日折算的时薪）、工作时间（含滚动时间选择器）、使用偏好。</desc>
 
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
@@ -40,7 +40,7 @@
   <text class="t cap" x="146" y="98" text-anchor="end">今日入账</text>
   <rect x="154" y="87" width="94" height="17" rx="8.5" fill="#f1f4f9"/>
   <text class="t" x="201" y="99" text-anchor="middle" font-size="10.5" font-weight="600" fill="#4a505a">¥55.5556/时</text>
-  <text class="t" x="178" y="138" text-anchor="middle" font-size="34" font-weight="700" fill="#16181d" letter-spacing="-1.2">¥301.49</text>
+  <text class="t" x="178" y="138" text-anchor="middle" font-size="30" font-weight="700" fill="#16181d" letter-spacing="-1.2">¥301.4938</text>
 
   <rect x="46" y="154" width="264" height="50" rx="10" fill="#fafbfe" stroke="#eef3f9"/>
   <line x1="134" y1="156" x2="134" y2="202" stroke="#eef3f9"/>

@@ -219,12 +219,33 @@ function driveTicker(startIso, seconds, patch) {
     rafQueue = [];
     queue.forEach((cb) => cb(clock));
     renderOnce();
+    const text = amountTextOf(lastTree);
     const shown = amountOf(lastTree);
-    if (shown !== null) samples.push({ clock, shown });
+    if (shown !== null) samples.push({ clock, shown, text });
   }
 
   globalThis.Date = RealDate;
   return samples;
+}
+
+/** The amount line as rendered text, e.g. "¥301.4938". */
+function amountTextOf(tree) {
+  let text = '';
+  let found = false;
+  (function walk(node, inside) {
+    if (node === null || node === undefined || typeof node === 'boolean') return;
+    if (typeof node === 'string' || typeof node === 'number') {
+      if (inside) text += String(node);
+      return;
+    }
+    if (Array.isArray(node)) { node.forEach((child) => walk(child, inside)); return; }
+    if (typeof node === 'object') {
+      const isAmount = node.props !== undefined && node.props.className === 'pd-amount';
+      if (isAmount) found = true;
+      if (node.children) walk(node.children, inside || isAmount);
+    }
+  })(tree, false);
+  return found ? text : null;
 }
 
 /** The number rendered inside the card's amount block. */
@@ -489,16 +510,16 @@ const grew = last - first;
 // Anything near zero means the figure is frozen, which is the bug this guards.
 check('6 秒内确实在动（> 0.05 元）', grew > 0.05, 'true');
 
-// The card renders the amount to two decimals, so the invariant is "never
-// renders more than the true amount rounded up to that precision": half a cent.
+// The card floors the figure to four decimals, so it can never claim an amount
+// that has not been earned. No rounding allowance is needed.
 const overshoot = frames.filter((sample) => {
   const truth = api.earnedAt(baseConfig(TICK_PATCH), new Date(sample.clock));
-  return sample.shown > Math.ceil(truth * 100) / 100 + 1e-9;
+  return sample.shown > truth + 1e-9;
 });
-check('显示值不超前真值（含 2 位小数取整）', overshoot.length, 0);
+check('显示值严格不超前真值', overshoot.length, 0);
 
 const truthAtEnd = api.earnedAt(baseConfig(TICK_PATCH), new Date(frames[frames.length - 1].clock));
-check('显示值追上真实值（差值 < 0.01）', Math.abs(last - truthAtEnd) < 0.01, 'true');
+check('显示值追上真实值（差值 < 1e-4）', Math.abs(last - truthAtEnd) < 1e-4, 'true');
 
 // The figure has to move *within* the run, not only at the end: find the first
 // sample that differs from the opening value.
@@ -512,6 +533,20 @@ const fast = driveTicker(TICK_AT, 6, { monthlySalary: 40000 }).map((s) => s.show
 const slowGain = slow[slow.length - 1] - slow[0];
 const fastGain = fast[fast.length - 1] - fast[0];
 check('五倍月薪的跳动也约五倍', fastGain > slowGain * 4, 'true');
+
+// The amount line carries four decimals, and its tail turns between frames:
+// that is what makes the figure look alive rather than stepping once a second.
+const texts = frames.map((sample) => sample.text).filter((text) => text !== null);
+check('金额显示 4 位小数', /^¥[\d,]+\.\d{4}$/.test(texts[0]), 'true');
+check('小数位数不是 2', /\.\d{4}$/.test(texts[0]) && !/\.\d{2}$/.test(texts[0]), 'true');
+
+const distinctTexts = new Set(texts).size;
+check('大量不同取值（每帧都在变）', distinctTexts > texts.length / 10, 'true');
+
+// Consecutive frames must actually differ, not just drift over the run.
+let changedPairs = 0;
+for (let index = 1; index < texts.length; index += 1) if (texts[index] !== texts[index - 1]) changedPairs += 1;
+check('相邻帧大多不同', changedPairs > texts.length * 0.8, 'true');
 
 // A frozen shift must stay frozen rather than drifting on its own.
 const frozen = driveTicker('2026-10-17T07:00:00', 4, { salaryMode: 'daily', dailySalary: 500 });
