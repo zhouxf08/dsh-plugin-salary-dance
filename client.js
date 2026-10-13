@@ -344,8 +344,8 @@ window.__ModuleLoader__.load({
 		 * @param hoursPerDay - paid hours in one full shift.
 		 */
 		function dailyRate(config, actual, hoursPerDay) {
-			const manual = config.manualWorkdays > 0;
-			const workdays = manual ? config.manualWorkdays : actual.count;
+			const manual = manualWorkdaysOf(config);
+			const workdays = manual === null ? actual.count : manual;
 			const safeWorkdays = workdays > 0 ? workdays : 1;
 			const hours = hoursPerDay > 0 ? hoursPerDay : 0;
 			const hourly = hours > 0 ? config.monthlySalary / safeWorkdays / hours : 0;
@@ -378,8 +378,8 @@ window.__ModuleLoader__.load({
 				'一月', '二月', '三月', '四月', '五月', '六月',
 				'七月', '八月', '九月', '十月', '十一月', '十二月'
 			];
-			const manual = config.manualWorkdays > 0;
-			const workdays = manual ? config.manualWorkdays : actual.count;
+			const manual = manualWorkdaysOf(config);
+			const workdays = manual === null ? actual.count : manual;
 			const safeWorkdays = workdays > 0 ? workdays : 1;
 			const hours = hoursPerDay > 0 ? hoursPerDay : 0;
 			const hourly = hours > 0 ? config.monthlySalary / safeWorkdays / hours : 0;
@@ -393,23 +393,37 @@ window.__ModuleLoader__.load({
 				daily: daily,
 				monthTotal: config.salaryMode === 'monthly' ? config.monthlySalary : daily * workdays,
 				monthLabel: monthNames[date.getMonth()],
-				covered: actual.covered && !manual,
-				manual: manual,
+				covered: actual.covered && manual === null,
+				manual: manual !== null,
 				holidayNames: actual.holidays
 			};
 		}
 
 		/**
-		 * What the working-days row shows. The row doubles as the calendar's readout
-		 * and as a hand-set override, so it shows the calendar's count until the user
-		 * edits it. A real 0 is never a valid count, which is what keeps a
-		 * cleared field from reading as an override.
+		 * The hand-set working-day count, or null when the calendar is in charge.
+		 *
+		 * This is the single place that decides whether the row is an override. It
+		 * used to be spelled `manualWorkdays > 0` in the rate math and differently
+		 * again in the row, so switching back to automatic left the old number in
+		 * force for the rate while the row showed the calendar's.
+		 *
+		 * A real 0 is never a valid count, which is what keeps a cleared field from
+		 * reading as an override.
 		 */
-		function resolveManualWorkdays(config, calendarCount) {
+		function manualWorkdaysOf(config) {
 			if (config.manualWorkdaysOverride === true && config.manualWorkdays > 0) {
 				return config.manualWorkdays;
 			}
-			return calendarCount;
+			return null;
+		}
+
+		/**
+		 * What the working-days row shows: the hand-set count while the row is an
+		 * override, otherwise the calendar's own answer.
+		 */
+		function resolveManualWorkdays(config, calendarCount) {
+			const manual = manualWorkdaysOf(config);
+			return manual === null ? calendarCount : manual;
 		}
 
 		/** Format a currency amount with the requested decimals and no symbol. */
@@ -1924,6 +1938,7 @@ window.__ModuleLoader__.load({
 			earnedAt: earnedAt,
 			placePopover: placePopover,
 			resolveManualWorkdays: resolveManualWorkdays,
+			manualWorkdaysOf: manualWorkdaysOf,
 			POPOVER_HEIGHT: POPOVER_HEIGHT,
 			dailyRate: dailyRate,
 			solveShift: solveShift,

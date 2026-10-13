@@ -430,7 +430,7 @@ check('6 小时班的时薪', shortShift.hourly.toFixed(4), '74.0741');
 check('时薪随工时变化', shortShift.hourly > oct.hourly, 'true');
 
 // A manual override wins over the calendar.
-const manual = rate('2026-10-14T12:00:00', { monthlySalary: 8000, manualWorkdays: 20 });
+const manual = rate('2026-10-14T12:00:00', { monthlySalary: 8000, manualWorkdays: 20, manualWorkdaysOverride: true });
 check('手填 20 天的工作日', manual.workdays, 20);
 check('手填 20 天的时薪', manual.hourly.toFixed(4), '50.0000');
 check('手填时不标未覆盖', manual.covered, 'false');
@@ -510,7 +510,7 @@ check('二月底部注明 16 天', hasText(febCard, '实际工作日 16 天'), '
 check('二月底部日薪 500 元', hasText(febCard, '日薪 500.00 元'), 'true');
 
 // A manual override has to be reflected in that same line.
-const manualCard = render('2026-10-14T10:00:00', { monthlySalary: 8000, manualWorkdays: 20 });
+const manualCard = render('2026-10-14T10:00:00', { monthlySalary: 8000, manualWorkdays: 20, manualWorkdaysOverride: true });
 check('手填 20 天时底部跟着变', hasText(manualCard, '实际工作日 20 天'), 'true');
 check('手填 20 天时日薪 400 元', hasText(manualCard, '日薪 400.00 元'), 'true');
 
@@ -808,9 +808,38 @@ function renderOpenPanel(iso, patch, step) {
   return render(iso, patch, [undefined, true, step, frozen]);
 }
 
+// Switching back to automatic must release the override everywhere, not only in
+// the row. The rate math used to read `manualWorkdays > 0` on its own, so a
+// hand-set count stayed in force for the money after the reset.
+const cfg = (patch) => Object.assign({}, api.DEFAULT_CONFIG, patch);
+const october = { count: 18, covered: true, holidays: [] };
+
+check('自定时算作覆盖', api.manualWorkdaysOf(cfg({ manualWorkdays: 20, manualWorkdaysOverride: true })), 20);
+check('自动时不算覆盖', api.manualWorkdaysOf(cfg({ manualWorkdays: 20, manualWorkdaysOverride: false })), 'null');
+check('自动时 0 也不算覆盖', api.manualWorkdaysOf(cfg({ manualWorkdays: 0, manualWorkdaysOverride: true })), 'null');
+
+// The money must follow the same switch the row does.
+const manualRate = api.computePay(cfg({ monthlySalary: 8000, manualWorkdays: 20, manualWorkdaysOverride: true }), new Date('2026-10-14T10:00:00'), october, 8);
+const autoRate = api.computePay(cfg({ monthlySalary: 8000, manualWorkdays: 20, manualWorkdaysOverride: false }), new Date('2026-10-14T10:00:00'), october, 8);
+check('自定时按 20 天算', manualRate.workdays, 20);
+check('自定时标为 manual', manualRate.manual, 'true');
+check('自动时回到日历 18 天', autoRate.workdays, 18);
+check('自动时不标 manual', autoRate.manual, 'false');
+check('自动时不标未覆盖', autoRate.covered, 'true');
+check('自动时日薪按 18 天', autoRate.daily.toFixed(2), '444.44');
+check('自定时日薪按 20 天', manualRate.daily.toFixed(2), '400.00');
+
 // The effect fills the row from the calendar when the panel opens.
 renderOpenPanel('2026-10-14T10:00:00', { monthlySalary: 8000, manualWorkdays: 0, manualWorkdaysOverride: false }, 1);
 check('打开面板即写入日历值', states[0].manualWorkdays, 18);
+// A stored positive count without the switch is not an override: the calendar wins.
+const staleCount = api.computePay(
+  baseConfig({ monthlySalary: 8000, manualWorkdays: 20, manualWorkdaysOverride: false }),
+  new Date('2026-10-14T12:00:00'),
+  api.monthWorkdays(2026, 9, [1, 2, 3, 4, 5]),
+  8
+);
+check('有旧数字但未标自定时用日历', staleCount.workdays, 18);
 check('写入后仍是自动模式', states[0].manualWorkdaysOverride, 'false');
 
 const panel = renderKeepingState();
@@ -842,6 +871,37 @@ check('恢复后重新显示日历值', findWorkingDaysField(resetPanel).props.v
 // Clearing the field must fall back to the calendar, not to an override of zero.
 findWorkingDaysField(resetPanel).props.onChange(0);
 check('清空后回到自动模式', states[0].manualWorkdaysOverride, 'false');
+
+// The reported bug, driven end to end: a hand-set value, then the reset control.
+// Neither the note nor the rate may keep using the hand-set number.
+// The footer lives on the collapsed card, so the money is read there: it has to
+// follow the same switch the row does.
+function collapsedCard(configPatch) {
+  return render('2026-10-14T10:00:00', configPatch, [undefined, false, 1, new Date('2026-10-14T10:00:00')]);
+}
+const manualFooter = collapsedCard({ monthlySalary: 8000, manualWorkdays: 20, manualWorkdaysOverride: true });
+check('自定时底部按 20 天', hasText(manualFooter, '日薪 400.00 元'), 'true');
+check('自定时底部标 20 天', hasText(manualFooter, '实际工作日 20 天'), 'true');
+const autoFooter = collapsedCard({ monthlySalary: 8000, manualWorkdays: 20, manualWorkdaysOverride: false });
+check('自动时底部回到 18 天', hasText(autoFooter, '实际工作日 18 天'), 'true');
+check('自动时底部日薪 444.44', hasText(autoFooter, '日薪 444.44 元'), 'true');
+
+// The reported bug, driven end to end: open the panel with a hand-set value, read
+// the panel's note, press the reset control, then render the panel again — both
+// the note and the rate must be back on the calendar.
+renderOpenPanel('2026-10-14T10:00:00', { monthlySalary: 8000, manualWorkdays: 20, manualWorkdaysOverride: true }, 1);
+const beforeReset = renderKeepingState();
+check('重置前显示自定提示', hasText(beforeReset, '已手动指定本月 20 个工作日'), 'true');
+check('重置前标签标为自定', hasText(beforeReset, '已改为自定'), 'true');
+
+nodeByClass(beforeReset, 'pd-reset').props.onClick();
+// Re-open the panel with the post-reset state: `renderKeepingState` cannot do it,
+// because the card was left collapsed above.
+const afterReset = renderOpenPanel('2026-10-14T10:00:00', states[0], 1);
+check('重置后不再显示自定提示', hasText(afterReset, '已手动指定'), 'false');
+check('重置后显示日历口径', hasText(afterReset, '折合时薪 ¥55.5556'), 'true');
+check('重置后计数为 18', states[0].manualWorkdays, 18);
+check('重置后不标 manual', states[0].manualWorkdaysOverride, 'false');
 
 /* ------------------------------------------------------------------ *
  * 5. Copy coverage: every rendered string resolves to a dictionary entry,
