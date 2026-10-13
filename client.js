@@ -114,6 +114,9 @@ window.__ModuleLoader__.load({
 		/** Years the calendar table above actually covers. */
 		const CALENDAR_YEARS = [2025, 2026];
 
+		/** The animation asks for the month's workday count on every frame. */
+		const workdayMemo = new Map();
+
 		/** `YYYY-MM-DD` key in the local zone. */
 		function dateKey(year, monthIndex, day) {
 			return (
@@ -137,6 +140,9 @@ window.__ModuleLoader__.load({
 		 *          holiday names falling in that month.
 		 */
 		function monthWorkdays(year, monthIndex, workDays) {
+			const memoKey = year + '-' + monthIndex + '-' + workDays.join(',');
+			const memo = workdayMemo.get(memoKey);
+			if (memo !== undefined) return memo;
 			const total = new Date(year, monthIndex + 1, 0).getDate();
 			let count = 0;
 			const holidays = [];
@@ -154,11 +160,13 @@ window.__ModuleLoader__.load({
 				}
 				if (workDays.indexOf(isoWeekday(date.getDay())) >= 0) count += 1;
 			}
-			return {
+			const result = {
 				count: count,
 				covered: CALENDAR_YEARS.indexOf(year) >= 0,
 				holidays: holidays
 			};
+			workdayMemo.set(memoKey, result);
+			return result;
 		}
 
 		/* ------------------------------------------------------------------ *
@@ -325,6 +333,30 @@ window.__ModuleLoader__.load({
 		}
 
 		/**
+		 * The pay for one full working day, before any of it has been served.
+		 * @param actual - the calendar's answer for this month.
+		 * @param hoursPerDay - paid hours in one full shift.
+		 */
+		function dailyRate(config, actual, hoursPerDay) {
+			const manual = config.manualWorkdays > 0;
+			const workdays = manual ? config.manualWorkdays : actual.count;
+			const safeWorkdays = workdays > 0 ? workdays : 1;
+			const hours = hoursPerDay > 0 ? hoursPerDay : 0;
+			const hourly = hours > 0 ? config.monthlySalary / safeWorkdays / hours : 0;
+			if (config.salaryMode === 'monthly') return config.monthlySalary / safeWorkdays;
+			if (config.salaryMode === 'daily') return config.dailySalary;
+			return hourly * hours;
+		}
+
+		/** The amount earned at one instant, from the shift and the day's rate. */
+		function earnedAt(config, date) {
+			const shift = solveShift(config, date);
+			if (shift.workSpanMin <= 0) return 0;
+			const actual = monthWorkdays(date.getFullYear(), date.getMonth(), config.workDays);
+			return dailyRate(config, actual, shift.hoursPerDay) * (shift.servedMin / shift.workSpanMin);
+		}
+
+		/**
 		 * Derive the month's rate card.
 		 *
 		 * Hourly is the anchor: the month's actual working days (public holidays and
@@ -344,12 +376,8 @@ window.__ModuleLoader__.load({
 			const workdays = manual ? config.manualWorkdays : actual.count;
 			const safeWorkdays = workdays > 0 ? workdays : 1;
 			const hours = hoursPerDay > 0 ? hoursPerDay : 0;
-
 			const hourly = hours > 0 ? config.monthlySalary / safeWorkdays / hours : 0;
-			let daily = 0;
-			if (config.salaryMode === 'monthly') daily = config.monthlySalary / safeWorkdays;
-			else if (config.salaryMode === 'daily') daily = config.dailySalary;
-			else daily = hourly * hours;
+			const daily = dailyRate(config, actual, hoursPerDay);
 
 			return {
 				mode: config.salaryMode,
@@ -452,9 +480,23 @@ window.__ModuleLoader__.load({
 .pd-iconbtn:focus-visible{ outline:2px solid var(--dsw-alias-state-business-primary,#4a90e2); outline-offset:1px; }
 .pd-body{ padding:0 14px 12px; }
 .pd-caption{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
   font-size:11px;
   color:var(--dsw-alias-label-tertiary,#8a9099);
   text-align:center;
+}
+/* The hourly rate drives the ticker, so it sits beside the amount rather than
+   buried in a footnote: four decimals, per the rate the settings derive. */
+.pd-caprate{
+  font-variant-numeric:tabular-nums;
+  font-weight:600;
+  color:var(--dsw-alias-label-secondary,#4a505a);
+  background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.05));
+  border-radius:999px;
+  padding:1px 7px;
 }
 .pd-amount{
   display:flex;
@@ -1146,43 +1188,73 @@ window.__ModuleLoader__.load({
 			const shift = solveShift(config, now);
 			const actual = monthWorkdays(now.getFullYear(), now.getMonth(), config.workDays);
 			const pay = computePay(config, now, actual, shift.hoursPerDay);
-			const earned = shift.workSpanMin > 0 ? pay.daily * (shift.servedMin / shift.workSpanMin) : 0;
-			const projected = allowed ? pay.daily : earned;
+			// The true amount at this instant. The animation prices its own instant
+			// through the same helper, so the two can never disagree.
+			const earned = earnedAt(config, now);
 			const served = formatDuration(shift.servedMin);
 			const remaining = formatDuration(shift.remainingMin);
 
-			// Countdown motion: interpolate from the previous second's amount to this
-			// second's. The target only ever moves up while the shift is running, so a
-			// settings edit taken mid-tick cannot drag the figure backwards.
-			if (targetRef.current === null || earned - targetRef.current > 0.005 || targetRef.current - earned > Math.max(0.05, earned * 0.02)) {
-				targetRef.current = earned;
-			}
-			const target = targetRef.current;
+			// Countdown motion. The one-second heartbeat recomputes `earned`; an
+			// animation loop advances the figure shown on the card so it slides
+			// instead of stepping.
+			//
+			// Two constraints shape this. The loop must always read the *current*
+			// target rather than a captured one, or the figure lags a whole tick
+			// behind and the last digits appear frozen. And the figure may only lag
+			// the true amount, never lead it: an earlier version interpolated with
+			// the frame budget as its ratio and the last rendered value as its base,
+			// a geometric series that converged to well under the true amount, so a
+			// bigger true delta made the rendered figure move *less*.
+			// The loop may be torn down and restarted between frames, so the "latest
+			// requested handle" lives in a ref rather than a closure variable, and the
+			// config is read through a ref so the loop never captures a stale one.
+			const rafRef = React.useRef(null);
+			const configRef = React.useRef(config);
+			configRef.current = config;
 
 			React.useEffect(function () {
+				if (config.miniFloat && !open) return undefined;
 				const reduce = typeof window.matchMedia === 'function'
 					&& window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 				if (reduce) {
-					setLiquid(target);
+					setLiquid(targetRef.current);
 					return undefined;
 				}
-				let raf = 0;
-				let scheduled = 0;
-				const duration = 900;
+				// `null`, not 0: a rAF timestamp legitimately starts at zero on a fresh
+				// page, so zero cannot mark "no previous frame".
+				let last = null;
 				function frame(timestamp) {
-					if (scheduled === 0) scheduled = timestamp;
-					const ratio = Math.min(1, (timestamp - scheduled) / duration);
-					setLiquid(function (prev) {
-						const base = prev === null ? target : prev;
-						return base + (target - base) * ratio;
+					const previousFrame = last;
+					last = timestamp;
+					const elapsed = previousFrame === null ? 0 : Math.min(timestamp - previousFrame, 1000);
+					// Price this instant from the clock rather than from the last
+					// heartbeat, so a frame landing just after a tick can never jump the
+					// figure past the amount actually earned.
+					const current = earnedAt(configRef.current, new Date());
+					setLiquid(function (previous) {
+						const base = previous === null ? current : previous;
+						if (base >= current) return current;
+						// Catch up at the real rate, with a floor so the last cent still
+						// moves, and bounded so a long suspension cannot jump the figure.
+						const gain = (current / 28800) * (elapsed / 1000);
+						return Math.min(current, base + Math.max(gain, (current - base) * 0.08));
 					});
-					if (ratio < 1) raf = window.requestAnimationFrame(frame);
+					rafRef.current = window.requestAnimationFrame(frame);
 				}
-				raf = window.requestAnimationFrame(frame);
-				return function () { window.cancelAnimationFrame(raf); };
-			}, [target]);
+				rafRef.current = window.requestAnimationFrame(frame);
+				return function () {
+					if (rafRef.current !== null) window.cancelAnimationFrame(rafRef.current);
+					rafRef.current = null;
+				};
+			}, [config.miniFloat, open]);
 
-			const shownEarned = liquid === null ? earned : liquid;
+			// The card shows the live figure rather than the whole-second one. The
+			// heartbeat still refreshes the month-level state (working-day count,
+			// rates, day-off status), which is all that changes once a second.
+			const shownEarned = config.miniFloat && !open ? earned : Math.max(earned, liquid === null ? 0 : liquid);
+			// The display may lag the true amount while catching up, so the projection
+			// stat uses the true figure.
+			const shownProjected = allowed ? pay.daily : earned;
 			const money = formatMoney(shownEarned);
 			const moneyParts = money.split('.');
 			const hourlyText = formatMoney(pay.hourly, 4);
@@ -1457,7 +1529,10 @@ window.__ModuleLoader__.load({
 						)
 					)
 				: h('div', { className: 'pd-body' },
-						h('div', { className: 'pd-caption' }, t('caption.today')),
+						h('div', { className: 'pd-caption' },
+							h('span', null, t('caption.today')),
+							h('span', { className: 'pd-caprate' }, '¥' + hourlyText + '/' + t('unit.hour'))
+						),
 						h('div', { className: 'pd-amount', 'aria-live': 'off' },
 							h('span', { className: 'sym' }, '¥'),
 							h('span', { className: 'int' }, groupMoney(moneyParts[0])),
@@ -1466,7 +1541,7 @@ window.__ModuleLoader__.load({
 						h('div', { className: 'pd-stats' },
 							stat(t('stat.worked'), served.hours + ' h ' + served.minutes + ' m'),
 							stat(t('stat.remaining'), remaining.hours + ' h ' + remaining.minutes + ' m'),
-							stat(t('stat.projected'), '¥' + formatMoney(projected))
+							stat(t('stat.projected'), '¥' + formatMoney(shownProjected))
 						),
 						h('div', {
 							className: 'pd-bar',
@@ -1476,10 +1551,6 @@ window.__ModuleLoader__.load({
 							'aria-valuenow': Math.round(shift.progress * 100),
 							'aria-label': t('stat.progress')
 						}, h('span', { className: 'knob', style: { left: (shift.progress * 100).toFixed(2) + '%' } })),
-						h('div', { className: 'pd-rate' },
-							h('span', null, t('stat.ticking')),
-							h('span', { className: 'b' }, '¥' + hourlyText + ' / ' + t('unit.hour'))
-						),
 						h('div', { className: 'pd-actions' },
 							h('button', {
 								type: 'button',
@@ -1507,7 +1578,6 @@ window.__ModuleLoader__.load({
 				'stat.remaining': '距离下班',
 				'stat.projected': '今日预计',
 				'stat.progress': '今日工作进度',
-				'stat.ticking': '跳动速率',
 				'unit.hour': '时',
 				'unit.days': '天',
 				'unit.yuan': '元',
@@ -1537,7 +1607,6 @@ window.__ModuleLoader__.load({
 				'field.daily': '日薪金额',
 				'field.hourly': '时薪金额',
 				'field.manualWorkdays.label': '本月实际工作日',
-				'field.manualWorkdays.hint': '留 0 表示用内置法定节假日日历。',
 				'field.workdays': '选择工作日',
 				'field.start': '上班时间',
 				'field.end': '下班时间',
@@ -1587,7 +1656,6 @@ window.__ModuleLoader__.load({
 				'stat.remaining': 'Until off-work',
 				'stat.projected': "Today's estimate",
 				'stat.progress': "Today's work progress",
-				'stat.ticking': 'Ticking rate',
 				'unit.hour': 'h',
 				'unit.days': 'days',
 				'unit.yuan': 'CNY',
@@ -1617,7 +1685,6 @@ window.__ModuleLoader__.load({
 				'field.daily': 'Daily rate',
 				'field.hourly': 'Hourly rate',
 				'field.manualWorkdays.label': 'Working days this month',
-				'field.manualWorkdays.hint': 'Leave 0 to use the built-in public-holiday calendar.',
 				'field.workdays': 'Working days',
 				'field.start': 'Start',
 				'field.end': 'End',
@@ -1697,6 +1764,8 @@ window.__ModuleLoader__.load({
 			MAKEUP_WORKDAYS: MAKEUP_WORKDAYS,
 			CALENDAR_YEARS: CALENDAR_YEARS,
 			monthWorkdays: monthWorkdays,
+			earnedAt: earnedAt,
+			dailyRate: dailyRate,
 			solveShift: solveShift,
 			computePay: computePay,
 			formatMoney: formatMoney,

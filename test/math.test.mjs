@@ -27,6 +27,17 @@ function createElement(type, props, ...children) {
   return { type, props: props === null || props === undefined ? {} : props, children };
 }
 
+// Effects are recorded with their dependency array and flushed after each
+// render, so a test can drive animation frames the way a browser does.
+const effects = [];
+
+function depsChanged(previous, next) {
+  if (previous === undefined) return true;
+  if (next === undefined || next === null) return true;
+  if (next.length !== previous.length) return true;
+  return next.some((value, index) => !Object.is(value, previous[index]));
+}
+
 const React = {
   createElement,
   useState(init) {
@@ -34,15 +45,45 @@ const React = {
     if (states[index] === undefined) states[index] = typeof init === 'function' ? init() : init;
     return [states[index], (next) => { states[index] = typeof next === 'function' ? next(states[index]) : next; }];
   },
-  useEffect() { cursor++; },
-  useRef(init) { cursor++; return { current: init }; }
+  useEffect(callback, deps) {
+    const index = cursor++;
+    effects[index] = { callback, deps: deps || null, cleanup: effects[index] ? effects[index].cleanup : undefined, seen: effects[index] ? effects[index].seen : false };
+  },
+  useRef(init) {
+    const index = cursor++;
+    if (refs[index] === undefined) refs[index] = { current: init };
+    return refs[index];
+  }
 };
+
+// Hook slots persist across renders, like React's own store. A `useRef` that
+// handed back a fresh object each render would reset the widget's frame handle
+// and its own next-frame request would cancel itself.
+const refs = [];
+
+/** Run every pending effect whose dependencies changed, after a render. */
+function flushEffects() {
+  effects.forEach((entry, index) => {
+    if (!entry) return;
+    if (entry.seen && !depsChanged(entry.deps || undefined, entry.deps || undefined)) return;
+    if (entry.seen && entry.deps !== null && !depsChanged(effects[index]._prevDeps, entry.deps)) return;
+    if (entry.seen && entry.cleanup) entry.cleanup();
+    effects[index] = Object.assign({}, entry, { seen: true, _prevDeps: entry.deps, cleanup: entry.callback() });
+  });
+}
 
 /* ------------------------------------------------------------------ *
  * Load the bundle under a fake browser shell.
  * ------------------------------------------------------------------ */
 
 let registered = null;
+/** Frames queued by the widget, so the ticker can be driven deterministically. */
+let rafQueue = [];
+/** The tree from the most recent render. */
+let lastTree = null;
+/** Timers the widget registered, so the heartbeat can be driven by the clock. */
+const intervals = new Map();
+let intervalSeq = 0;
 globalThis.window = {
   __ModuleLoader__: { load(entry) { registered = entry; } },
   localStorage: {
@@ -50,12 +91,13 @@ globalThis.window = {
     getItem(k) { return this._v.has(k) ? this._v.get(k) : null; },
     setItem(k, v) { this._v.set(k, v); }
   },
-  setInterval: () => 0,
-  clearInterval: () => {},
+  setInterval: (cb, ms) => { intervals.set(++intervalSeq, { cb, ms }); return intervalSeq; },
+  clearInterval: (id) => { intervals.delete(id); },
   setTimeout: () => 0,
   clearTimeout: () => {},
-  requestAnimationFrame: () => 0,
+  requestAnimationFrame: (cb) => { rafQueue.push(cb); return rafQueue.length; },
   cancelAnimationFrame: () => {},
+  matchMedia: () => ({ matches: false }),
   innerWidth: 1440,
   innerHeight: 900
 };
@@ -109,11 +151,15 @@ function render(momentIso, configPatch, initialState) {
 
   cursor = 0;
   states.length = 0;
+  effects.length = 0;
+  refs.length = 0;
   // The component's hook order is fixed: [config, open, step, now, liquid, pos].
   // Seeding a slot skips that useState initializer, which is how the settings
   // panel (open) is reached without a DOM.
   if (initialState) initialState.forEach((value, index) => { if (value !== undefined) states[index] = value; });
   const tree = mod.SalaryDanceWidget({ t: localeAwareT });
+  lastTree = tree;
+  flushEffects();
   globalThis.Date = RealDate;
   return tree;
 }
@@ -122,6 +168,95 @@ function render(momentIso, configPatch, initialState) {
 function localeAwareT(key) {
   const zh = api.DICTIONARIES.zh;
   return Object.prototype.hasOwnProperty.call(zh, key) ? zh[key] : 'MISSING:' + key;
+}
+
+/**
+ * Drive the ticker the way a browser would: render, run the queued animation
+ * frames while the clock advances, and return the amount shown on each frame.
+ *
+ * This is the check the old implementation failed. It interpolated with the
+ * last rendered value as its base and the frame budget as its ratio, so the
+ * figure converged to well under the true amount and a bigger true delta made
+ * the rendered figure move *less*.
+ */
+function driveTicker(startIso, seconds, patch) {
+  const config = baseConfig(patch);
+  globalThis.window.localStorage.setItem('dsh-plugin-salary-dance/config.v1', JSON.stringify(config));
+
+  const start = new Date(startIso).getTime();
+  let clock = start;
+  const RealDate = Date;
+  class FakeDate extends RealDate {
+    constructor(...args) { super(...(args.length === 0 ? [clock] : args)); }
+    static now() { return clock; }
+  }
+  globalThis.Date = FakeDate;
+
+  cursor = 0;
+  states.length = 0;
+  effects.length = 0;
+  refs.length = 0;
+
+  // Render without clearing the hook slots afterwards, so state, refs and
+  // effects survive across frames the way they do in a real tree.
+  function renderOnce() {
+    cursor = 0;
+    rafQueue = [];
+    lastTree = mod.SalaryDanceWidget({ t: localeAwareT });
+    flushEffects();
+  }
+
+  intervals.clear();
+  const samples = [];
+  renderOnce();
+  const steps = seconds * 60;
+  for (let step = 0; step < steps; step += 1) {
+    clock += 1000 / 60;
+    // Fire the heartbeat when its period has elapsed, then the queued frames.
+    // Both settle state, so the tree is rendered again before it is read.
+    if ((step + 1) % 60 === 0) intervals.forEach((timer) => timer.cb());
+    const queue = rafQueue;
+    rafQueue = [];
+    queue.forEach((cb) => cb(clock));
+    renderOnce();
+    const shown = amountOf(lastTree);
+    if (shown !== null) samples.push({ clock, shown });
+  }
+
+  globalThis.Date = RealDate;
+  return samples;
+}
+
+/** The number rendered inside the card's amount block. */
+function amountOf(tree) {
+  let text = '';
+  let found = false;
+  (function walk(node, inside) {
+    if (node === null || node === undefined || typeof node === 'boolean') return;
+    if (typeof node === 'string' || typeof node === 'number') {
+      if (inside) text += String(node);
+      return;
+    }
+    if (Array.isArray(node)) { node.forEach((child) => walk(child, inside)); return; }
+    if (typeof node === 'object') {
+      const isAmount = node.props !== undefined && node.props.className === 'pd-amount';
+      if (isAmount) found = true;
+      if (node.children) walk(node.children, inside || isAmount);
+    }
+  })(tree, false);
+  if (!found) return null;
+  const value = Number(text.replace(/[^0-9.]/g, ''));
+  return Number.isFinite(value) ? value : null;
+}
+
+/**
+ * The true amount at a pinned instant, read through the widget's own helper.
+ * Using the exported helper keeps the harness from drifting from the card; the
+ * "never leads" assertion below is still meaningful because the card only ever
+ * *renders* a value, while this reads the function directly.
+ */
+function trueEarned(iso, patch) {
+  return api.earnedAt(baseConfig(patch), new Date(iso));
 }
 
 /** Render with the settings panel already open. */
@@ -322,6 +457,65 @@ check('2026-02 显示 16 个工作日', hasText(february, '实际工作日 16 �
 
 check('金额格式 2 位小数', api.formatMoney(1234.5), '1234.50');
 check('时薪格式 4 位小数', api.formatMoney(58.82352941, 4), '58.8235');
+check('时薪舍入到 4 位', api.formatMoney(55.55555555, 4), '55.5556');
+check('时薪不补零丢失位数', api.formatMoney(50, 4), '50.0000');
+
+// A 4-decimal rate must reach the card itself, not only the formatter.
+const rateCard = render('2026-10-14T19:30:00', { monthlySalary: 8000 });
+check('卡片上时薪带 4 位小数', hasText(rateCard, '¥55.5556'), 'true');
+check('卡片上时薪带单位', hasText(rateCard, '¥55.5556/时'), 'true');
+const tidyRate = render('2026-03-10T19:30:00', { monthlySalary: 8000 });
+check('整点时薪也补足 4 位', hasText(tidyRate, '¥45.4545'), 'true');
+
+/* ------------------------------------------------------------------ *
+ * 4b. The ticker: does the rendered figure actually follow the clock?
+ * ------------------------------------------------------------------ */
+
+console.log('\n--- 跳动 ---');
+const TICK_AT = '2026-10-14T10:00:00';
+const TICK_PATCH = { monthlySalary: 8000 };
+
+const frames = driveTicker(TICK_AT, 6, TICK_PATCH);
+check('采集到动画帧', frames.length > 100, 'true');
+
+const amounts = frames.map((sample) => sample.shown);
+const nonDecreasing = amounts.every((value, index) => index === 0 || value >= amounts[index - 1]);
+check('入账只增不减', nonDecreasing, 'true');
+
+const first = amounts[0];
+const last = amounts[amounts.length - 1];
+const grew = last - first;
+// 8000 / 18 工作日 / 8 小时 => 55.5556 元/时, so six seconds adds about 0.0926.
+// Anything near zero means the figure is frozen, which is the bug this guards.
+check('6 秒内确实在动（> 0.05 元）', grew > 0.05, 'true');
+
+// The card renders the amount to two decimals, so the invariant is "never
+// renders more than the true amount rounded up to that precision": half a cent.
+const overshoot = frames.filter((sample) => {
+  const truth = api.earnedAt(baseConfig(TICK_PATCH), new Date(sample.clock));
+  return sample.shown > Math.ceil(truth * 100) / 100 + 1e-9;
+});
+check('显示值不超前真值（含 2 位小数取整）', overshoot.length, 0);
+
+const truthAtEnd = api.earnedAt(baseConfig(TICK_PATCH), new Date(frames[frames.length - 1].clock));
+check('显示值追上真实值（差值 < 0.01）', Math.abs(last - truthAtEnd) < 0.01, 'true');
+
+// The figure has to move *within* the run, not only at the end: find the first
+// sample that differs from the opening value.
+const movedAt = amounts.findIndex((value) => value > amounts[0] + 1e-9);
+check('2 秒内开始变化', movedAt >= 0 && movedAt < 120, 'true');
+
+// The rendered figure must track a rate change, not crawl: a much larger hourly
+// rate has to produce a visibly larger six-second gain.
+const slow = driveTicker(TICK_AT, 6, { monthlySalary: 8000 }).map((s) => s.shown);
+const fast = driveTicker(TICK_AT, 6, { monthlySalary: 40000 }).map((s) => s.shown);
+const slowGain = slow[slow.length - 1] - slow[0];
+const fastGain = fast[fast.length - 1] - fast[0];
+check('五倍月薪的跳动也约五倍', fastGain > slowGain * 4, 'true');
+
+// A frozen shift must stay frozen rather than drifting on its own.
+const frozen = driveTicker('2026-10-17T07:00:00', 4, { salaryMode: 'daily', dailySalary: 500 });
+check('休息日班前恒为 0', frozen.every((sample) => sample.shown === 0), 'true');
 
 /* ------------------------------------------------------------------ *
  * 5. Copy coverage: every rendered string resolves to a dictionary entry,

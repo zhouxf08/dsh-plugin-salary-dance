@@ -37,7 +37,9 @@
   <text class="t cap" x="312" y="60" text-anchor="end">正在上班</text>
   <line x1="28" y1="76" x2="328" y2="76" stroke="#f1f5fb"/>
 
-  <text class="t cap" x="178" y="98" text-anchor="middle">今日入账</text>
+  <text class="t cap" x="146" y="98" text-anchor="end">今日入账</text>
+  <rect x="154" y="87" width="94" height="17" rx="8.5" fill="#f1f4f9"/>
+  <text class="t" x="201" y="99" text-anchor="middle" font-size="10.5" font-weight="600" fill="#4a505a">¥55.5556/时</text>
   <text class="t" x="178" y="138" text-anchor="middle" font-size="34" font-weight="700" fill="#16181d" letter-spacing="-1.2">¥301.49</text>
 
   <rect x="46" y="154" width="264" height="50" rx="10" fill="#fafbfe" stroke="#eef3f9"/>
@@ -56,10 +58,9 @@
   <rect x="46" y="216" width="212" height="8" rx="4" fill="url(#accent)"/>
   <circle cx="258" cy="220" r="8" fill="url(#accent)" stroke="#ffffff" stroke-width="2.5"/>
 
-  <text class="t cap" x="46" y="246">跳动速率</text>
-  <text class="t val" x="310" y="246" text-anchor="end">¥55.5556 / 时</text>
-  <text class="t cap" x="46" y="266">十月预计</text>
-  <text class="t val" x="310" y="266" text-anchor="end">¥8000.00</text>
+  <text class="t cap" x="46" y="252">时薪 = 月薪 ÷ 当月实际工作日 ÷ 每日工时</text>
+  <text class="t cap" x="46" y="272">十月预计</text>
+  <text class="t val" x="310" y="272" text-anchor="end">¥8000.00</text>
 
   <!-- ======================= RIGHT: settings panel ======================= -->
   <g filter="url(#card-shadow)">
