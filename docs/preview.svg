@@ -71,7 +71,7 @@
 
   <!-- ======================= RIGHT: settings panel ======================= -->
   <g filter="url(#card-shadow)">
-    <rect x="368" y="30" width="360" height="512" rx="16" fill="#ffffff" stroke="#e3ebf7"/>
+    <rect x="368" y="30" width="360" height="486" rx="16" fill="#ffffff" stroke="#e3ebf7"/>
   </g>
   <text class="t ttl" x="390" y="58">薪跳 SalaryDance · 首次配置</text>
   <line x1="368" y1="72" x2="728" y2="72" stroke="#f1f5fb"/>
@@ -154,31 +154,30 @@
 
   <!-- step 3, on the left under the card -->
   <g filter="url(#card-shadow)">
-    <rect x="28" y="322" width="300" height="220" rx="14" fill="#ffffff" stroke="#e3ebf7"/>
+    <rect x="28" y="300" width="300" height="196" rx="14" fill="#ffffff" stroke="#e3ebf7"/>
   </g>
   <g class="t">
     <text class="ttl" x="46" y="348">使用偏好</text>
-    <text class="lbl" x="46" y="374">主题</text>
-    <rect x="46" y="382" width="264" height="30" rx="9" fill="#f1f4f9"/>
-    <rect x="50" y="386" width="82" height="22" rx="7" fill="#ffffff" stroke="#e8eef7"/>
-    <text x="91" y="401" text-anchor="middle" font-size="11.5" font-weight="600" fill="#16181d">浅色</text>
-    <text x="178" y="401" text-anchor="middle" font-size="11.5" fill="#4a505a">深色</text>
-    <text x="266" y="401" text-anchor="middle" font-size="11.5" fill="#4a505a">跟随系统</text>
+    <text class="lbl" x="46" y="352">主题</text>
+    <rect x="46" y="360" width="264" height="30" rx="9" fill="#f1f4f9"/>
+    <rect x="50" y="364" width="82" height="22" rx="7" fill="#ffffff" stroke="#e8eef7"/>
+    <text x="91" y="379" text-anchor="middle" font-size="11.5" font-weight="600" fill="#16181d">浅色</text>
+    <text x="178" y="379" text-anchor="middle" font-size="11.5" fill="#4a505a">深色</text>
+    <text x="266" y="379" text-anchor="middle" font-size="11.5" fill="#4a505a">跟随系统</text>
 
-    <text x="46" y="438" font-size="11.5" fill="#16181d">窗口始终置顶</text>
-    <rect x="274" y="429" width="36" height="20" rx="10" fill="url(#accent)"/>
-    <circle cx="301" cy="439" r="8" fill="#ffffff"/>
+    <text x="46" y="416" font-size="11.5" fill="#16181d">窗口始终置顶</text>
+    <rect x="274" y="407" width="36" height="20" rx="10" fill="url(#accent)"/>
+    <circle cx="301" cy="417" r="8" fill="#ffffff"/>
 
-    <text x="46" y="468" font-size="11.5" fill="#16181d">迷你悬浮模式</text>
-    <rect x="274" y="459" width="36" height="20" rx="10" fill="#dfe7f2"/>
-    <circle cx="283" cy="469" r="8" fill="#ffffff"/>
+    <text x="46" y="446" font-size="11.5" fill="#16181d">迷你悬浮模式</text>
+    <rect x="274" y="437" width="36" height="20" rx="10" fill="#dfe7f2"/>
+    <circle cx="283" cy="447" r="8" fill="#ffffff"/>
 
-    <text x="46" y="498" font-size="11.5" fill="#16181d">开机自动启动</text>
-    <rect x="274" y="489" width="36" height="20" rx="10" fill="#dfe7f2"/>
-    <circle cx="283" cy="499" r="8" fill="#ffffff"/>
+    <text x="46" y="476" font-size="11.5" fill="#16181d">开机自动启动</text>
+    <rect x="274" y="467" width="36" height="20" rx="10" fill="#dfe7f2"/>
+    <circle cx="283" cy="477" r="8" fill="#ffffff"/>
 
-    <text class="cap" x="46" y="520">所有配置仅保存在本机浏览器，不上传。</text>
-  </g>
+      </g>
 
-  <text class="t cap" x="380" y="612" text-anchor="middle">薪跳 SalaryDance · DSH Web 界面插件 · 结构示意图（非运行截图）</text>
+  <text class="t cap" x="380" y="596" text-anchor="middle">薪跳 SalaryDance · DSH Web 界面插件 · 结构示意图（非运行截图）</text>
 </svg>

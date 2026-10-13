@@ -821,15 +821,6 @@ window.__ModuleLoader__.load({
 }
 .pd-switch[aria-checked="true"] span{ transform:translateX(16px); }
 .pd-switch:focus-visible{ outline:2px solid var(--dsw-alias-state-business-primary,#4a90e2); outline-offset:2px; }
-.pd-seal{
-  display:flex; align-items:center; gap:9px;
-  margin-top:11px; padding:9px 10px;
-  border-radius:var(--dsw-radius-md,10px);
-  background:var(--dsw-alias-bg-layer-1,rgba(0,0,0,.02));
-  border:0.5px solid var(--dsw-alias-border-l1,rgba(0,0,0,.06));
-}
-.pd-seal .tx .a{ font-size:11.5px; font-weight:600; }
-.pd-seal .tx .b{ font-size:10.5px; color:var(--dsw-alias-label-tertiary,#8a9099); margin-top:1px; line-height:1.4; }
 .pd-panel-actions{ display:flex; gap:8px; margin-top:13px; }
 .pd-panel-actions .pd-btn{ height:36px; font-size:13.5px; }
 @media (prefers-reduced-motion: reduce){
@@ -861,7 +852,6 @@ window.__ModuleLoader__.load({
 			chevron: 'M4 8.5 L8 4.5 L12 8.5',
 			close: 'M4.5 4.5 L11.5 11.5 M11.5 4.5 L4.5 11.5',
 			arrow: 'M3 8 H12 M8.5 4 L12.5 8 L8.5 12',
-			shield: 'M8 2 L13 4 V8 C13 11 10.8 13.2 8 14 C5.2 13.2 3 11 3 8 V4 Z',
 			sun: 'M8 5.2 A2.8 2.8 0 1 1 8 10.8 A2.8 2.8 0 1 1 8 5.2 M8 1.5 V3 M8 13 V14.5 M1.5 8 H3 M13 8 H14.5 M3.4 3.4 L4.5 4.5 M11.5 11.5 L12.6 12.6 M12.6 3.4 L11.5 4.5 M4.5 11.5 L3.4 12.6',
 			pin: 'M6 2 H10 M8 2 V9 M4.5 9 H11.5 L8 14 Z',
 			window: 'M2.5 3.5 H13.5 V12.5 H2.5 Z M2.5 6.5 H13.5',
@@ -1609,15 +1599,6 @@ window.__ModuleLoader__.load({
 											className: 'pd-btn',
 											onClick: function () { setOpen(false); setStep(1); }
 										}, t('action.done'), h(Icon, { name: 'arrow', size: 13 }))
-							),
-							h('div', { className: 'pd-seal' },
-								h('span', { className: 'ic', style: { color: 'var(--dsw-alias-brand-primary,#f68b1f)' } },
-									h(Icon, { name: 'shield', size: 17 })
-								),
-								h('div', { className: 'tx' },
-									h('div', { className: 'a' }, t('privacy.title')),
-									h('div', { className: 'b' }, t('privacy.body'))
-								)
 							)
 						)
 					)
@@ -1769,8 +1750,6 @@ window.__ModuleLoader__.load({
 				'rate.daily': '日薪',
 				'rate.workdays': '本月实际工作日',
 				'rate.monthTotal': '本月预计',
-				'privacy.title': '所有配置仅保存在本地',
-				'privacy.body': '无需账号，无需联网，更安心'
 			},
 			en: {
 				'caption.today': "Today's earnings",
@@ -1850,8 +1829,6 @@ window.__ModuleLoader__.load({
 				'rate.daily': 'Daily',
 				'rate.workdays': 'Working days this month',
 				'rate.monthTotal': 'Month estimate',
-				'privacy.title': 'Everything is stored locally',
-				'privacy.body': 'No account, no network, no worries'
 			}
 		};
 

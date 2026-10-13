@@ -723,6 +723,26 @@ const footRow = nodeByClass(gearTree, 'pd-foot-row');
 check('底部一行只有两个子元素', footRow === null ? '(none)' : footRow.children.length, 2);
 
 /* ------------------------------------------------------------------ *
+ * 4e. The settings panel carries no local-storage notice
+ * ------------------------------------------------------------------ */
+
+console.log('\n--- 本地存储说明已移除 ---');
+const panelSteps = [1, 2, 3].map(
+  (stepIndex) => render('2026-10-14T15:00:00', { monthlySalary: 8000 }, [undefined, true, stepIndex])
+);
+
+panelSteps.forEach((tree, index) => {
+  check('步骤 ' + (index + 1) + ' 无说明块', nodeByClass(tree, 'pd-seal'), 'null');
+  check('步骤 ' + (index + 1) + ' 无说明文案', hasText(tree, '所有配置仅保存在本地'), 'false');
+});
+check('字典已移除 privacy.title', Object.prototype.hasOwnProperty.call(api.DICTIONARIES.zh, 'privacy.title'), 'false');
+check('字典已移除 privacy.body', Object.prototype.hasOwnProperty.call(api.DICTIONARIES.zh, 'privacy.body'), 'false');
+check('英文字典也已移除', Object.prototype.hasOwnProperty.call(api.DICTIONARIES.en, 'privacy.title'), 'false');
+// The stylesheet must not keep the rules either.
+const cssNoCommentsForSeal = api.CSS.replace(/\/\*[\s\S]*?\*\//g, '');
+check('样式表已移除 .pd-seal', cssNoCommentsForSeal.includes('.pd-seal'), 'false');
+
+/* ------------------------------------------------------------------ *
  * 5. Copy coverage: every rendered string resolves to a dictionary entry,
  *    and the two dictionaries carry the same key set.
  * ------------------------------------------------------------------ */
