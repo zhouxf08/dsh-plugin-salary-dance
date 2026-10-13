@@ -65,10 +65,17 @@ const refs = [];
 function flushEffects() {
   effects.forEach((entry, index) => {
     if (!entry) return;
-    if (entry.seen && !depsChanged(entry.deps || undefined, entry.deps || undefined)) return;
-    if (entry.seen && entry.deps !== null && !depsChanged(effects[index]._prevDeps, entry.deps)) return;
-    if (entry.seen && entry.cleanup) entry.cleanup();
-    effects[index] = Object.assign({}, entry, { seen: true, _prevDeps: entry.deps, cleanup: entry.callback() });
+    // First run, no deps, or changed deps: run it. Otherwise leave it mounted.
+    // The first guard used to compare `entry.deps` with itself, so an effect whose
+    // deps had not changed never ran at all — and the harness reported state changes
+    // that had not happened.
+    if (entry.seen && entry.deps !== null && !depsChanged(entry._prevDeps, entry.deps)) return;
+    if (entry.seen && typeof entry.cleanup === 'function') entry.cleanup();
+    effects[index] = Object.assign({}, entry, {
+      seen: true,
+      _prevDeps: entry.deps,
+      cleanup: entry.callback()
+    });
   });
 }
 
@@ -278,6 +285,20 @@ function amountOf(tree) {
  */
 function trueEarned(iso, patch) {
   return api.earnedAt(baseConfig(patch), new Date(iso));
+}
+
+/**
+ * Render the widget without resetting the hook slots.
+ *
+ * React restarts the hook cursor on every component render; a harness that calls
+ * the component directly has to do the same, or the second call reads slots from
+ * the wrong position and binds `open` to whatever happens to sit there.
+ */
+function renderKeepingState() {
+  cursor = 0;
+  const tree = mod.SalaryDanceWidget({ t: localeAwareT });
+  flushEffects();
+  return tree;
 }
 
 /** Render with the settings panel already open. */
@@ -727,9 +748,10 @@ check('底部一行只有两个子元素', footRow === null ? '(none)' : footRow
  * ------------------------------------------------------------------ */
 
 console.log('\n--- 本地存储说明已移除 ---');
-const panelSteps = [1, 2, 3].map(
-  (stepIndex) => render('2026-10-14T15:00:00', { monthlySalary: 8000 }, [undefined, true, stepIndex])
-);
+function renderOpenPanelAt(stepIndex) {
+  return renderOpenPanel('2026-10-14T15:00:00', { monthlySalary: 8000 }, stepIndex);
+}
+const panelSteps = [1, 2, 3].map(renderOpenPanelAt);
 
 panelSteps.forEach((tree, index) => {
   check('步骤 ' + (index + 1) + ' 无说明块', nodeByClass(tree, 'pd-seal'), 'null');
@@ -741,6 +763,85 @@ check('英文字典也已移除', Object.prototype.hasOwnProperty.call(api.DICTI
 // The stylesheet must not keep the rules either.
 const cssNoCommentsForSeal = api.CSS.replace(/\/\*[\s\S]*?\*\//g, '');
 check('样式表已移除 .pd-seal', cssNoCommentsForSeal.includes('.pd-seal'), 'false');
+
+/* ------------------------------------------------------------------ *
+ * 4f. The working-days row: a calendar readout that can be overridden
+ *
+ * The row doubles as the calendar's readout and as a hand-set override, so the
+ * rules are checked both as a pure function and by driving the mounted widget:
+ * the readout must follow the calendar, an edit must take over, and clearing the
+ * field or pressing the reset control must hand it back.
+ * ------------------------------------------------------------------ */
+
+console.log('\n--- 本月实际工作日 ---');
+const solve = api.resolveManualWorkdays;
+
+check('未编辑时显示日历值（0 -> 18）', solve({ manualWorkdays: 0, manualWorkdaysOverride: false }, 18), 18);
+check('未编辑时显示日历值（旧值 20 但有开关关）', solve({ manualWorkdays: 20, manualWorkdaysOverride: false }, 18), 18);
+check('编辑后显示自定值', solve({ manualWorkdays: 20, manualWorkdaysOverride: true }, 18), 20);
+// A cleared field must not read as an override of zero.
+check('清空后回到日历值', solve({ manualWorkdays: 0, manualWorkdaysOverride: true }, 18), 18);
+
+// Find the working-days field. It is a function component, so this harness leaves
+// it un-invoked (React would call it); the check reads the element's props, which
+// is exactly the state the field is given.
+function findWorkingDaysField(tree) {
+  let found = null;
+  (function walk(node) {
+    if (found !== null || node === null || node === undefined || typeof node !== 'object') return;
+    if (Array.isArray(node)) { node.forEach(walk); return; }
+    if (node.props !== undefined && typeof node.props.label === 'string'
+      && node.props.label.indexOf('本月实际工作日') === 0
+      && Object.prototype.hasOwnProperty.call(node.props, 'onChange')) {
+      found = node;
+      return;
+    }
+    if (node.children) node.children.forEach(walk);
+  })(tree);
+  return found;
+}
+
+// The hook slots are [config, open, step, now, tick, pos], so a hand-seeded render
+// has to supply `now` as well as `open` and `step`.
+function renderOpenPanel(iso, patch, step) {
+  const frozen = new Date(iso);
+  return render(iso, patch, [undefined, true, step, frozen]);
+}
+
+// The effect fills the row from the calendar when the panel opens.
+renderOpenPanel('2026-10-14T10:00:00', { monthlySalary: 8000, manualWorkdays: 0, manualWorkdaysOverride: false }, 1);
+check('打开面板即写入日历值', states[0].manualWorkdays, 18);
+check('写入后仍是自动模式', states[0].manualWorkdaysOverride, 'false');
+
+const panel = renderKeepingState();
+const field = findWorkingDaysField(panel);
+check('找到工作日在段', field !== null, 'true');
+check('字段显示日历值', field === null ? null : field.props.value, 18);
+check('字段单位是天', field === null ? null : field.props.unit, '天');
+check('自动模式下无恢复按钮', nodeByClass(panel, 'pd-reset'), 'null');
+
+// Typing a value must take over, and the row must then keep the typed number
+// instead of being reset by the effect on the next render.
+field.props.onChange(20);
+check('输入后进入自定模式', states[0].manualWorkdaysOverride, 'true');
+check('输入后记住该值', states[0].manualWorkdays, 20);
+const editedPanel = renderKeepingState();
+check('自定时显示自定值', findWorkingDaysField(editedPanel).props.value, 20);
+check('自定时文案改为「已改为自定」', hasText(editedPanel, '已改为自定'), 'true');
+check('自定时出现恢复按钮', nodeByClass(editedPanel, 'pd-reset') !== null, 'true');
+
+const resetButton = nodeByClass(editedPanel, 'pd-reset');
+check('恢复按钮有可访问名称', resetButton === null ? null : resetButton.props['aria-label'], '恢复自动');
+resetButton.props.onClick();
+check('恢复后回到自动模式', states[0].manualWorkdaysOverride, 'false');
+check('恢复后取回日历值', states[0].manualWorkdays, 18);
+const resetPanel = renderKeepingState();
+check('恢复后按钮消失', nodeByClass(resetPanel, 'pd-reset'), 'null');
+check('恢复后重新显示日历值', findWorkingDaysField(resetPanel).props.value, 18);
+
+// Clearing the field must fall back to the calendar, not to an override of zero.
+findWorkingDaysField(resetPanel).props.onChange(0);
+check('清空后回到自动模式', states[0].manualWorkdaysOverride, 'false');
 
 /* ------------------------------------------------------------------ *
  * 5. Copy coverage: every rendered string resolves to a dictionary entry,

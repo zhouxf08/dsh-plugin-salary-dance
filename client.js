@@ -180,13 +180,14 @@ window.__ModuleLoader__.load({
 			monthlySalary: 8000,
 			dailySalary: 400,
 			hourlySalary: 50,
-			manualWorkdays: 0, // > 0 overrides the calendar when deriving the rate
+			manualWorkdays: 0, // > 0 is a hand-set override; 0 follows the calendar
 			workDays: [1, 2, 3, 4, 5],
 			startTime: '09:00',
 			endTime: '18:00',
 			lunchEnabled: true,
 			lunchStart: '12:00',
 			lunchEnd: '13:00',
+			manualWorkdaysOverride: false, // the row is only an override once edited
 			theme: 'light', // 'light' | 'dark' | 'system'
 			alwaysOnTop: true,
 			miniFloat: false,
@@ -227,9 +228,14 @@ window.__ModuleLoader__.load({
 			['startTime', 'endTime', 'lunchStart', 'lunchEnd'].forEach(function (key) {
 				if (!isClockString(merged[key])) merged[key] = DEFAULT_CONFIG[key];
 			});
-			['lunchEnabled', 'alwaysOnTop', 'miniFloat', 'autoLaunch'].forEach(function (key) {
+			['lunchEnabled', 'alwaysOnTop', 'miniFloat', 'autoLaunch', 'manualWorkdaysOverride'].forEach(function (key) {
 				merged[key] = merged[key] === true;
 			});
+			// Storage written before this flag existed carries a positive count but no
+			// switch; such a value was hand-set, so honour it as an override.
+			if (parsed.manualWorkdaysOverride === undefined && merged.manualWorkdays > 0) {
+				merged.manualWorkdaysOverride = true;
+			}
 			return merged;
 		}
 
@@ -391,6 +397,19 @@ window.__ModuleLoader__.load({
 				manual: manual,
 				holidayNames: actual.holidays
 			};
+		}
+
+		/**
+		 * What the working-days row shows. The row doubles as the calendar's readout
+		 * and as a hand-set override, so it shows the calendar's count until the user
+		 * edits it. A real 0 is never a valid count, which is what keeps a
+		 * cleared field from reading as an override.
+		 */
+		function resolveManualWorkdays(config, calendarCount) {
+			if (config.manualWorkdaysOverride === true && config.manualWorkdays > 0) {
+				return config.manualWorkdays;
+			}
+			return calendarCount;
 		}
 
 		/** Format a currency amount with the requested decimals and no symbol. */
@@ -685,6 +704,23 @@ window.__ModuleLoader__.load({
   outline-offset:1px;
 }
 .pd-input .unit{ font-size:11.5px;color:var(--dsw-alias-label-tertiary,#8a9099); flex:0 0 auto; }
+/* The working-days row is a readout until it is edited, so the way back to the
+   calendar sits beside it rather than hidden in another step. */
+.pd-reset{
+  appearance:none;
+  flex:0 0 auto;
+  height:26px;
+  padding:0 8px;
+  border:0.5px solid var(--dsw-alias-border-l3,rgba(0,0,0,.12));
+  border-radius:var(--dsw-radius-sm,8px);
+  background:transparent;
+  color:var(--dsw-alias-label-secondary,#4a505a);
+  font-family:inherit;
+  font-size:10.5px;
+  cursor:pointer;
+}
+.pd-reset:hover{ background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.06)); color:var(--dsw-alias-label-primary,#16181d); }
+.pd-reset:focus-visible{ outline:2px solid var(--dsw-alias-state-business-primary,#4a90e2); outline-offset:1px; }
 .pd-row{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
 .pd-days{ display:flex; gap:5px; }
 .pd-days button{
@@ -1251,6 +1287,11 @@ window.__ModuleLoader__.load({
 			const rootRef = React.useRef(null);
 			const dragRef = React.useRef(null);
 
+			// The calendar's answer for the current month. Declared before the effects
+			// below, which keep the working-days row in step with it.
+			const actual = monthWorkdays(now.getFullYear(), now.getMonth(), config.workDays);
+			const actualCount = actual.count;
+
 			// One one-second heartbeat drives the whole card. It stops while the card
 			// sits in mini mode, so an idle page stays quiet.
 			React.useEffect(function () {
@@ -1262,6 +1303,15 @@ window.__ModuleLoader__.load({
 			React.useEffect(function () {
 				saveConfig(config);
 			}, [config]);
+
+			// Keep the working-days row showing the calendar's answer until the user
+			// takes it over. Keyed on `open` as well, so reopening the panel reflects a
+			// month that has since rolled over.
+			React.useEffect(function () {
+				if (config.manualWorkdaysOverride === true) return;
+				if (config.manualWorkdays === actualCount) return;
+				update({ manualWorkdays: actualCount });
+			}, [open, actualCount, config.manualWorkdaysOverride, config.manualWorkdays]);
 
 			function update(patch) {
 				setConfig(function (previous) { return Object.assign({}, previous, patch); });
@@ -1280,7 +1330,6 @@ window.__ModuleLoader__.load({
 
 			const allowed = config.workDays.indexOf(isoWeekday(now.getDay())) >= 0;
 			const shift = solveShift(config, now);
-			const actual = monthWorkdays(now.getFullYear(), now.getMonth(), config.workDays);
 			const pay = computePay(config, now, actual, shift.hoursPerDay);
 			// The true amount at this instant. The animation prices its own instant
 			// through the same helper, so the two can never disagree.
@@ -1710,6 +1759,8 @@ window.__ModuleLoader__.load({
 				'field.daily': '日薪金额',
 				'field.hourly': '时薪金额',
 				'field.manualWorkdays.label': '本月实际工作日',
+				'field.manualWorkdays.edited': '本月实际工作日（已改为自定）',
+				'action.resetAuto': '恢复自动',
 				'field.workdays': '选择工作日',
 				'field.start': '上班时间',
 				'field.end': '下班时间',
@@ -1789,6 +1840,8 @@ window.__ModuleLoader__.load({
 				'field.daily': 'Daily rate',
 				'field.hourly': 'Hourly rate',
 				'field.manualWorkdays.label': 'Working days this month',
+				'field.manualWorkdays.edited': 'Working days this month (set by hand)',
+				'action.resetAuto': 'Use calendar',
 				'field.workdays': 'Working days',
 				'field.start': 'Start',
 				'field.end': 'End',
@@ -1870,6 +1923,7 @@ window.__ModuleLoader__.load({
 			monthWorkdays: monthWorkdays,
 			earnedAt: earnedAt,
 			placePopover: placePopover,
+			resolveManualWorkdays: resolveManualWorkdays,
 			POPOVER_HEIGHT: POPOVER_HEIGHT,
 			dailyRate: dailyRate,
 			solveShift: solveShift,
