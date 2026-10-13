@@ -765,6 +765,72 @@ const cssNoCommentsForSeal = api.CSS.replace(/\/\*[\s\S]*?\*\//g, '');
 check('样式表已移除 .pd-seal', cssNoCommentsForSeal.includes('.pd-seal'), 'false');
 
 /* ------------------------------------------------------------------ *
+ * 4h. The month calendar
+ *
+ * The work week is no longer a choice: the month is shown with the statutory days
+ * off and the makeup days marked. The classification is checked as a pure
+ * function and then as rendered cells.
+ * ------------------------------------------------------------------ */
+
+console.log('\n--- 工作日历 ---');
+const WEEK = [1, 2, 3, 4, 5];
+const octCal = api.monthCalendar(2026, 9, WEEK);
+
+check('十月 1 日是周四，前面 3 个空格', octCal.blanks, 3);
+check('十月共 31 天', octCal.days.length, 31);
+check('十月有内置日历', octCal.covered, 'true');
+
+const kindOn = (calendar, day) => calendar.days.find((entry) => entry.day === day).kind;
+const labelOn = (calendar, day) => calendar.days.find((entry) => entry.day === day).label;
+
+// National Day 1-7 is the loudest run in the month; 10-10 is a makeup Saturday.
+check('10-01 是法定节假日', kindOn(octCal, 1), 'holiday');
+check('10-05 是法定节假日', kindOn(octCal, 5), 'holiday');
+check('10-08 是工作日', kindOn(octCal, 8), 'workday');
+check('10-10 调休上班', kindOn(octCal, 10), 'makeup');
+check('10-11 是休息日', kindOn(octCal, 11), 'rest');
+check('10-17 是休息日（周六）', kindOn(octCal, 17), 'rest');
+check('节假日带名称', labelOn(octCal, 1), '国庆节');
+
+// Counted straight off the grid, the classifications must give the same total the
+// rate math uses — that is what lets the calendar explain the number.
+const workingCells = octCal.days.filter((entry) => entry.kind === 'workday' || entry.kind === 'makeup').length;
+check('日历上可工作的天数 = 18', workingCells, 18);
+check('与 monthWorkdays 一致', workingCells, api.monthWorkdays(2026, 9, WEEK).count);
+
+// A month starting on a Monday needs no blanks, and February 2026 shows Spring
+// Festival inside its short span.
+const junCal = api.monthCalendar(2026, 5, WEEK);
+check('六月 1 日是周一，无空格', junCal.blanks, 0);
+const febCal = api.monthCalendar(2026, 1, WEEK);
+check('二月共 28 天', febCal.days.length, 28);
+check('02-17 春节', kindOn(febCal, 17), 'holiday');
+check('02-14 调休上班', kindOn(febCal, 14), 'makeup');
+check('02-28 调休上班', kindOn(febCal, 28), 'makeup');
+
+// An uncovered year still lays out, with no holiday cells.
+const y2027 = api.monthCalendar(2027, 0, WEEK);
+check('2027 未覆盖', y2027.covered, 'false');
+check('2027 无节假日格子', y2027.days.filter((entry) => entry.kind === 'holiday').length, 0);
+
+// Rendered: the panel shows a grid of day cells, not a weekday picker any more.
+const schedulePanel = renderOpenPanel('2026-10-14T15:00:00', { monthlySalary: 8000 }, 2);
+const calCells = [];
+(function walk(node) {
+  if (node === null || node === undefined || typeof node !== 'object') return;
+  if (Array.isArray(node)) { node.forEach(walk); return; }
+  if (node.props && typeof node.props.className === 'string' && node.props.className.split(' ').includes('pd-cal-day')) calCells.push(node);
+  if (node.children) node.children.forEach(walk);
+})(schedulePanel);
+check('面板渲染出 31 个日期格', calCells.length, 31);
+check('已无星期多选控件', hasText(schedulePanel, '选择工作日'), 'false');
+check('标题写明当月工作日数', hasText(schedulePanel, '共 18 天'), 'true');
+const kinds = calCells.map((cell) => cell.props['data-kind']);
+check('格子有节假日', kinds.filter((kind) => kind === 'holiday').length, 7);
+check('格子有调休上班', kinds.filter((kind) => kind === 'makeup').length, 1);
+check('格子有休息日', kinds.filter((kind) => kind === 'rest').length > 0, 'true');
+
+/* ------------------------------------------------------------------ *
  * 4g. Stored-config migration
  *
  * The switch that tells a hand-set count from the calendar did not exist in the

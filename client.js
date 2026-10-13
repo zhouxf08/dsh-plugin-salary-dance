@@ -169,6 +169,44 @@ window.__ModuleLoader__.load({
 			return result;
 		}
 
+		/** Leading blank cells before the 1st, under a Monday-first week. */
+		function leadingBlanks(year, monthIndex) {
+			const weekday = isoWeekday(new Date(year, monthIndex, 1).getDay());
+			return weekday - 1;
+		}
+
+		/**
+		 * One month laid out for display: every day with the classification the
+		 * calendar paints, so the widget never re-derives it while rendering.
+		 *
+		 * `kind` is 'holiday' (a statutory day off), 'makeup' (a weekend the notices
+		 * turned into a working day), 'workday' (a normal working day) or 'rest'
+		 * (a weekend that is neither). `label` carries the holiday's name.
+		 */
+		function monthCalendar(year, monthIndex, workDays) {
+			const total = new Date(year, monthIndex + 1, 0).getDate();
+			const blanks = leadingBlanks(year, monthIndex);
+			const days = [];
+			for (let day = 1; day <= total; day += 1) {
+				const date = new Date(year, monthIndex, day);
+				const key = dateKey(year, monthIndex, day);
+				const holiday = HOLIDAYS[key];
+				const makeup = MAKEUP_WORKDAYS[key] === 1;
+				let kind;
+				if (holiday !== undefined) kind = 'holiday';
+				else if (makeup) kind = 'makeup';
+				else if (workDays.indexOf(isoWeekday(date.getDay())) >= 0) kind = 'workday';
+				else kind = 'rest';
+				days.push({
+					day: day,
+					weekday: isoWeekday(date.getDay()),
+					kind: kind,
+					label: holiday === undefined ? null : holiday.label
+				});
+			}
+			return { year: year, monthIndex: monthIndex, blanks: blanks, days: days, covered: CALENDAR_YEARS.indexOf(year) >= 0 };
+		}
+
 		/* ------------------------------------------------------------------ *
 		 * Defaults and configuration
 		 * ------------------------------------------------------------------ */
@@ -181,6 +219,9 @@ window.__ModuleLoader__.load({
 			dailySalary: 400,
 			hourlySalary: 50,
 			manualWorkdays: 0, // > 0 is a hand-set override; 0 follows the calendar
+			// Fixed: the statutory calendar is defined against the ordinary Monday to
+			// Friday week, so asking the user to pick weekdays only invited mistakes
+			// (and produced nonsense like a 14.5-hour "day" from a two-day week).
 			workDays: [1, 2, 3, 4, 5],
 			startTime: '09:00',
 			endTime: '18:00',
@@ -664,7 +705,15 @@ window.__ModuleLoader__.load({
 .pd-mini .v{ font-size:15px;font-weight:700;font-variant-numeric:tabular-nums; }
 .pd-mini .sym{ font-size:11px;font-weight:600;opacity:.8; }
 .pd-mini .cap{ font-size:10.5px;color:var(--dsw-alias-label-tertiary,#8a9099); }
-.pd-panel{ padding:0 14px 14px; }
+.pd-panel{
+  padding:0 14px 14px;
+  /* The calendar makes step 2 tall; on a short window the panel scrolls rather
+     than pushing its own controls off the bottom. */
+  max-height:min(74vh, 620px);
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  scrollbar-width:thin;
+}
 .pd-panel-head{
   display:flex;align-items:center;justify-content:flex-end;
   padding:6px 10px 0;
@@ -746,21 +795,58 @@ window.__ModuleLoader__.load({
 .pd-reset:hover{ background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.06)); color:var(--dsw-alias-label-primary,#16181d); }
 .pd-reset:focus-visible{ outline:2px solid var(--dsw-alias-state-business-primary,#4a90e2); outline-offset:1px; }
 .pd-row{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-.pd-days{ display:flex; gap:5px; }
-.pd-days button{
-  flex:1 1 0; appearance:none; font-family:inherit; cursor:pointer;
-  height:28px; border-radius:var(--dsw-radius-sm,8px);
-  border:0.5px solid var(--dsw-alias-border-l3,rgba(0,0,0,.12));
-  background:transparent; color:var(--dsw-alias-label-secondary,#4a505a);
-  font-size:11.5px; padding:0;
+/* The work week is not a choice: the statutory calendar is defined against the
+   ordinary Monday-to-Friday week, so the month is shown rather than configured. */
+.pd-cal-week,
+.pd-cal-grid{
+  display:grid;
+  grid-template-columns:repeat(7,1fr);
+  gap:2px;
 }
-.pd-days button[aria-pressed="true"]{
-  background:var(--dsw-alias-button-primary-fill,#f68b1f);
-  border-color:transparent;
+.pd-cal-week{ margin-bottom:3px; }
+.pd-cal-wd{
+  text-align:center;
+  font-size:9.5px;
+  color:var(--dsw-alias-label-tertiary,#8a9099);
+}
+.pd-cal-wd[data-rest]{ color:var(--dsw-alias-label-tertiary,#8a9099); opacity:.6; }
+.pd-cal-pad{ height:0; }
+.pd-cal-day{
+  height:20px;
+  display:flex;align-items:center;justify-content:center;
+  border-radius:var(--dsw-radius-xs,6px);
+  font-size:10.5px;
+  font-variant-numeric:tabular-nums;
+  color:var(--dsw-alias-label-secondary,#4a505a);
+  background:var(--dsw-alias-bg-layer-1,rgba(0,0,0,.02));
+}
+.pd-cal-day[data-kind="rest"]{ color:var(--dsw-alias-label-tertiary,#8a9099); background:transparent; opacity:.55; }
+.pd-cal-day[data-kind="weekend"]{ color:var(--dsw-alias-label-tertiary,#8a9099); }
+/* Statutory days off are the point of the grid, so they are the loudest cell. */
+.pd-cal-day[data-kind="holiday"]{
+  background:var(--dsw-alias-label-error,#e5484d);
   color:var(--dsw-alias-label-primary-foreground,#fff);
   font-weight:600;
 }
-.pd-days button:focus-visible{ outline:2px solid var(--dsw-alias-state-business-primary,#4a90e2); outline-offset:1px; }
+.pd-cal-day[data-kind="makeup"]{
+  background:var(--dsw-alias-brand-primary,#f68b1f);
+  color:var(--dsw-alias-label-primary-foreground,#fff);
+  font-weight:600;
+}
+.pd-cal-legend{
+  display:flex;flex-wrap:wrap;gap:10px;
+  margin-top:7px;
+  font-size:9.5px;
+  color:var(--dsw-alias-label-tertiary,#8a9099);
+}
+.pd-cal-legend span{ display:inline-flex;align-items:center;gap:4px; }
+.pd-cal-legend i{
+  width:8px;height:8px;border-radius:2px;
+  background:var(--dsw-alias-bg-layer-1,rgba(0,0,0,.08));
+  border:0.5px solid var(--dsw-alias-border-l2,rgba(0,0,0,.08));
+}
+.pd-cal-legend i[data-kind="holiday"]{ background:var(--dsw-alias-label-error,#e5484d); border-color:transparent; }
+.pd-cal-legend i[data-kind="makeup"]{ background:var(--dsw-alias-brand-primary,#f68b1f); border-color:transparent; }
 .pd-note{ font-size:10.5px; color:var(--dsw-alias-label-tertiary,#8a9099); margin-top:6px; line-height:1.5; }
 .pd-note.alert{ color:var(--dsw-alias-label-error,#e5484d); }
 
@@ -1341,15 +1427,6 @@ window.__ModuleLoader__.load({
 				setConfig(function (previous) { return Object.assign({}, previous, patch); });
 			}
 
-			function toggleDay(day) {
-				const has = config.workDays.indexOf(day) >= 0;
-				const next = has
-					? config.workDays.filter(function (item) { return item !== day; })
-					: config.workDays.concat([day]).sort(function (a, b) { return a - b; });
-				if (next.length === 0) return;
-				update({ workDays: next });
-			}
-
 			/* -------- derived numbers -------- */
 
 			const allowed = config.workDays.indexOf(isoWeekday(now.getDay())) >= 0;
@@ -1645,6 +1722,80 @@ window.__ModuleLoader__.load({
 							)
 						: null
 				);
+			}			function monthGrid() {
+				const calendar = monthCalendar(now.getFullYear(), now.getMonth(), config.workDays);
+				const cells = [];
+				for (let blank = 0; blank < calendar.blanks; blank += 1) {
+					cells.push(h('span', { key: 'blank-' + blank, className: 'pd-cal-pad' }));
+				}
+				calendar.days.forEach(function (entry) {
+					cells.push(h('span', {
+						key: entry.day,
+						className: 'pd-cal-day',
+						'data-kind': entry.kind,
+						title: entry.label === null ? undefined : entry.label,
+						'aria-label': entry.day + ' ' + t('cal.' + entry.kind)
+							+ (entry.label === null ? '' : ' ' + entry.label)
+					}, String(entry.day)));
+				});
+				return h('div', null,
+					h('div', { className: 'pd-cal-week' },
+						DAY_LABELS.map(function (label, index) {
+							return h('span', {
+								key: label,
+								className: 'pd-cal-wd',
+								'data-rest': index >= 5 ? 'true' : undefined
+							}, label);
+						})
+					),
+					h('div', { className: 'pd-cal-grid' }, cells),
+					h('div', { className: 'pd-cal-legend' },
+						h('span', null, h('i', { 'data-kind': 'workday' }), t('cal.workday')),
+						h('span', null, h('i', { 'data-kind': 'holiday' }), t('cal.holiday')),
+						h('span', null, h('i', { 'data-kind': 'makeup' }), t('cal.makeup'))
+					)
+				);
+			}
+
+			function stepSchedule() {
+				return h(
+					'div',
+					null,
+					stepRail(),
+					h('div', { className: 'pd-group' },
+						h('div', { className: 'pd-label' },
+							t('field.calendar')
+								.replace('{month}', String(now.getMonth() + 1))
+								.replace('{days}', String(actualCount))
+						),
+						monthGrid()
+					),
+					h('div', { className: 'pd-group pd-row' },
+						h('div', null,
+							h('div', { className: 'pd-label' }, t('field.start')),
+							timePicker('field.start', config.startTime, false)
+						),
+						h('div', null,
+							h('div', { className: 'pd-label' }, t('field.end')),
+							timePicker('field.end', config.endTime, false)
+						)
+					),
+					h('div', { className: 'pd-group' },
+						h('div', { className: 'pd-label' }, t('field.lunch')),
+						h('div', { className: 'pd-row' },
+							h('div', null, timePicker('field.lunchStart', config.lunchStart, !config.lunchEnabled)),
+							h('div', null, timePicker('field.lunchEnd', config.lunchEnd, !config.lunchEnabled))
+						),
+						h(SwitchRow, {
+							icon: 'sun',
+							title: t('field.lunchOn'),
+							hint: t('hint.lunchOn'),
+							checked: config.lunchEnabled,
+							onChange: function (value) { update({ lunchEnabled: value }); }
+						})
+					),
+					h('div', { className: 'pd-note' }, t('note.shift'))
+				);
 			}			const cardBody = open
 				? h('div', null,
 						h('div', { className: 'pd-panel-head' }, stepTab(1), spanConn(), stepTab(2), spanConn(), stepTab(3)),
@@ -1785,7 +1936,11 @@ window.__ModuleLoader__.load({
 				'field.manualWorkdays.label': '本月实际工作日',
 				'field.manualWorkdays.edited': '本月实际工作日（已改为自定）',
 				'action.resetAuto': '恢复自动',
-				'field.workdays': '选择工作日',
+				'field.calendar': '{month} 月工作日历 · 共 {days} 天',
+				'cal.workday': '工作日',
+				'cal.holiday': '法定节假日',
+				'cal.makeup': '调休上班',
+				'cal.rest': '休息日',
 				'field.start': '上班时间',
 				'field.end': '下班时间',
 				'field.lunch': '午休时间（可选）',
@@ -1866,7 +2021,11 @@ window.__ModuleLoader__.load({
 				'field.manualWorkdays.label': 'Working days this month',
 				'field.manualWorkdays.edited': 'Working days this month (set by hand)',
 				'action.resetAuto': 'Use calendar',
-				'field.workdays': 'Working days',
+				'field.calendar': '{month} calendar · {days} working days',
+				'cal.workday': 'Working day',
+				'cal.holiday': 'Public holiday',
+				'cal.makeup': 'Makeup workday',
+				'cal.rest': 'Rest day',
 				'field.start': 'Start',
 				'field.end': 'End',
 				'field.lunch': 'Lunch break (optional)',
@@ -1945,6 +2104,7 @@ window.__ModuleLoader__.load({
 			MAKEUP_WORKDAYS: MAKEUP_WORKDAYS,
 			CALENDAR_YEARS: CALENDAR_YEARS,
 			monthWorkdays: monthWorkdays,
+			monthCalendar: monthCalendar,
 			earnedAt: earnedAt,
 			placePopover: placePopover,
 			resolveManualWorkdays: resolveManualWorkdays,
