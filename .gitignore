@@ -1,0 +1,11 @@
+# Dependencies (a plugin needs none of its own)
+node_modules/
+
+# Profile-local plugin-manager artifacts
+.plugin-manager/
+
+# Editor and OS noise
+.DS_Store
+.idea/
+.vscode/
+*.log

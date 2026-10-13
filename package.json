@@ -1,0 +1,64 @@
+{
+  "name": "dsh-plugin-salary-dance",
+  "version": "1.0.0",
+  "description": "薪跳 SalaryDance —— 一个常驻 DSH Web 界面右上角的实时薪资跳动悬浮卡片，带三步设置面板（薪资模式 / 工作时间 / 使用偏好）。",
+  "type": "module",
+  "main": "index.js",
+  "icon": "./icon.svg",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./package.json": "./package.json",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "icon.svg",
+    "locale/*.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "salarydance",
+    "salary",
+    "widget"
+  ],
+  "scripts": {
+    "test": "node test/math.test.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "~4.0.4"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/cordis": {
+      "optional": true
+    }
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OWNER/dsh-plugin-salary-dance.git"
+  },
+  "homepage": "https://github.com/OWNER/dsh-plugin-salary-dance#readme",
+  "bugs": {
+    "url": "https://github.com/OWNER/dsh-plugin-salary-dance/issues"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true
+    }
+  }
+}
