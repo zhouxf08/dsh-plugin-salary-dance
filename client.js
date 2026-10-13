@@ -232,10 +232,8 @@ window.__ModuleLoader__.load({
 			// released by the reset control. A plain `false` default cannot distinguish
 			// "never set" from "set back to auto", which the migration below needs.
 			manualWorkdaysOverride: null,
-			theme: 'light', // 'light' | 'dark' | 'system'
-			alwaysOnTop: true,
-			miniFloat: false,
-			autoLaunch: false
+			theme: 'light', // 'light' | 'dark' | 'system' — toggled from the card
+			miniFloat: false
 		};
 
 		const SALARY_MODES = ['monthly', 'daily', 'hourly'];
@@ -278,7 +276,7 @@ window.__ModuleLoader__.load({
 			['startTime', 'endTime', 'lunchStart', 'lunchEnd'].forEach(function (key) {
 				if (!isClockString(merged[key])) merged[key] = DEFAULT_CONFIG[key];
 			});
-			['lunchEnabled', 'alwaysOnTop', 'miniFloat', 'autoLaunch'].forEach(function (key) {
+			['lunchEnabled', 'miniFloat'].forEach(function (key) {
 				merged[key] = merged[key] === true;
 			});
 			// Tri-state: anything that is not a real boolean falls back to the sentinel.
@@ -405,8 +403,15 @@ window.__ModuleLoader__.load({
 			return hourly * hours;
 		}
 
-		/** The amount earned at one instant, from the shift and the day's rate. */
+		/**
+		 * The amount earned at one instant, from the shift and the day's rate.
+		 *
+		 * A day the configured week does not cover earns nothing, whatever the clock
+		 * says: the display gates on this same rule, so leaving it out here made the
+		 * ticker and the card disagree on a weekend.
+		 */
 		function earnedAt(config, date) {
+			if (config.workDays.indexOf(isoWeekday(date.getDay())) < 0) return 0;
 			const shift = solveShift(config, date);
 			if (shift.workSpanMin <= 0) return 0;
 			const actual = monthWorkdays(date.getFullYear(), date.getMonth(), config.workDays);
@@ -546,12 +551,6 @@ window.__ModuleLoader__.load({
   overflow:hidden;
   text-overflow:ellipsis;
 }
-.pd-status{
-  margin-left:auto;
-  font-size:11px;
-  color:var(--dsw-alias-label-tertiary,#8a9099);
-  white-space:nowrap;
-}
 .pd-iconbtn{
   appearance:none;
   border:0;
@@ -565,6 +564,9 @@ window.__ModuleLoader__.load({
   flex:0 0 auto;
 }
 .pd-iconbtn:hover{ background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.06)); color:var(--dsw-alias-label-primary,#16181d); }
+.pd-iconbtn.on{ background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.06)); color:var(--dsw-alias-brand-primary,#f68b1f); }
+/* The three card-level controls sit together at the header's trailing edge. */
+.pd-head-actions{ margin-left:auto; display:flex; align-items:center; gap:2px; flex:0 0 auto; }
 .pd-iconbtn:focus-visible{ outline:2px solid var(--dsw-alias-state-business-primary,#4a90e2); outline-offset:1px; }
 .pd-body{ padding:0 14px 11px; }
 .pd-caption{
@@ -859,6 +861,34 @@ window.__ModuleLoader__.load({
 }
 .pd-cal-legend i[data-kind="holiday"]{ background:var(--dsw-alias-label-error,#e5484d); border-color:transparent; }
 .pd-cal-legend i[data-kind="makeup"]{ background:var(--dsw-alias-brand-primary,#f68b1f); border-color:transparent; }
+.pd-switchrow{
+  display:flex; align-items:center; gap:10px;
+  padding:9px 0 0;
+}
+.pd-switchrow .ic{
+  width:16px; height:16px; flex:0 0 auto;
+  color:var(--dsw-alias-label-secondary,#4a505a);
+  display:inline-flex; align-items:center; justify-content:center;
+}
+.pd-switchrow .tx{ flex:1 1 auto; min-width:0; }
+.pd-switchrow .tx .a{ font-size:12.5px; }
+.pd-switchrow .tx .b{ font-size:10.5px; color:var(--dsw-alias-label-tertiary,#8a9099); margin-top:1px; line-height:1.4; }
+.pd-switch{
+  position:relative; flex:0 0 auto;
+  width:36px;height:20px;padding:2px;
+  border:0;border-radius:999px;
+  background:var(--dsw-alias-border-l3,rgba(0,0,0,.2));
+  cursor:pointer;
+}
+.pd-switch[aria-checked="true"]{ background:var(--dsw-alias-brand-primary,#f68b1f); }
+.pd-switch span{
+  display:block;width:16px;height:16px;border-radius:50%;
+  background:var(--dsw-alias-label-primary-foreground,#fff);
+  box-shadow:0 1px 2px rgba(0,0,0,.25);
+  transition:transform 120ms ease;
+}
+.pd-switch[aria-checked="true"] span{ transform:translateX(16px); }
+.pd-switch:focus-visible{ outline:2px solid var(--dsw-alias-state-business-primary,#4a90e2); outline-offset:2px; }
 .pd-note{ font-size:10.5px; color:var(--dsw-alias-label-tertiary,#8a9099); margin-top:6px; line-height:1.5; }
 .pd-note.alert{ color:var(--dsw-alias-label-error,#e5484d); }
 
@@ -949,36 +979,6 @@ window.__ModuleLoader__.load({
 }
 .pd-pop-foot b{ color:var(--dsw-alias-label-primary,#16181d); font-variant-numeric:tabular-nums; font-size:12px; }
 
-.pd-switchrow{
-  display:flex; align-items:center; gap:10px;
-  padding:9px 0;
-  border-bottom:0.5px solid var(--dsw-alias-border-l1,rgba(0,0,0,.06));
-}
-.pd-switchrow:last-child{ border-bottom:0; }
-.pd-switchrow .ic{
-  width:16px; height:16px; flex:0 0 auto;
-  color:var(--dsw-alias-label-secondary,#4a505a);
-  display:inline-flex; align-items:center; justify-content:center;
-}
-.pd-switchrow .tx{ flex:1 1 auto; min-width:0; }
-.pd-switchrow .tx .a{ font-size:12.5px; }
-.pd-switchrow .tx .b{ font-size:10.5px; color:var(--dsw-alias-label-tertiary,#8a9099); margin-top:1px; line-height:1.4; }
-.pd-switch{
-  position:relative; flex:0 0 auto;
-  width:36px;height:20px;padding:2px;
-  border:0;border-radius:999px;
-  background:var(--dsw-alias-border-l3,rgba(0,0,0,.2));
-  cursor:pointer;
-}
-.pd-switch[aria-checked="true"]{ background:var(--dsw-alias-brand-primary,#f68b1f); }
-.pd-switch span{
-  display:block;width:16px;height:16px;border-radius:50%;
-  background:var(--dsw-alias-label-primary-foreground,#fff);
-  box-shadow:0 1px 2px rgba(0,0,0,.25);
-  transition:transform 120ms ease;
-}
-.pd-switch[aria-checked="true"] span{ transform:translateX(16px); }
-.pd-switch:focus-visible{ outline:2px solid var(--dsw-alias-state-business-primary,#4a90e2); outline-offset:2px; }
 .pd-panel-actions{ display:flex; gap:8px; margin-top:13px; }
 .pd-panel-actions .pd-btn{ height:36px; font-size:13.5px; }
 @media (prefers-reduced-motion: reduce){
@@ -1011,10 +1011,8 @@ window.__ModuleLoader__.load({
 			close: 'M4.5 4.5 L11.5 11.5 M11.5 4.5 L4.5 11.5',
 			arrow: 'M3 8 H12 M8.5 4 L12.5 8 L8.5 12',
 			sun: 'M8 5.2 A2.8 2.8 0 1 1 8 10.8 A2.8 2.8 0 1 1 8 5.2 M8 1.5 V3 M8 13 V14.5 M1.5 8 H3 M13 8 H14.5 M3.4 3.4 L4.5 4.5 M11.5 11.5 L12.6 12.6 M12.6 3.4 L11.5 4.5 M4.5 11.5 L3.4 12.6',
-			pin: 'M6 2 H10 M8 2 V9 M4.5 9 H11.5 L8 14 Z',
-			window: 'M2.5 3.5 H13.5 V12.5 H2.5 Z M2.5 6.5 H13.5',
-			power: 'M8 2.5 V7.5 M4.4 4.6 A4.6 4.6 0 1 0 11.6 4.6',
-			clock: 'M8 2.5 A5.5 5.5 0 1 1 7.99 2.5 M8 4.6 V8 L10.2 9.4',
+						window: 'M2.5 3.5 H13.5 V12.5 H2.5 Z M2.5 6.5 H13.5',
+						clock: 'M8 2.5 A5.5 5.5 0 1 1 7.99 2.5 M8 4.6 V8 L10.2 9.4',
 			calendar: 'M2.5 4 H13.5 V13 H2.5 Z M2.5 6.8 H13.5 M5.5 2.5 V5 M10.5 2.5 V5',
 			gear: 'M13.0107 7.79377C12.9505 7.89401 12.9205 7.94413 12.9205 7.99951C12.9205 8.0549 12.9505 8.10502 13.0106 8.20528L13.9849 9.83006C14.045 9.93029 14.0751 9.9804 14.0751 10.0358C14.0751 10.0911 14.045 10.1413 13.9849 10.2415L13.0037 11.8777C12.9468 11.9726 12.9184 12.0201 12.8725 12.0461C12.8267 12.072 12.7713 12.072 12.6607 12.072H10.6704C10.5598 12.072 10.5045 12.072 10.4586 12.098C10.4128 12.1239 10.3843 12.1714 10.3274 12.2662L9.33825 13.9142C9.28133 14.009 9.25287 14.0564 9.20703 14.0823C9.16118 14.1083 9.10588 14.1083 8.99529 14.1083H7.00486C6.89426 14.1083 6.83896 14.1083 6.79312 14.0823C6.74727 14.0564 6.71881 14.009 6.6619 13.9142L5.67273 12.2662C5.61581 12.1714 5.58735 12.1239 5.54151 12.098C5.49566 12.072 5.44036 12.072 5.32977 12.072H3.33945C3.2288 12.072 3.17347 12.072 3.12761 12.0461C3.08176 12.0201 3.0533 11.9726 2.9964 11.8777L2.0152 10.2415C1.9551 10.1413 1.92505 10.0911 1.92505 10.0358C1.92505 9.9804 1.9551 9.93029 2.0152 9.83006L2.98951 8.20528C3.04963 8.10502 3.07969 8.0549 3.07969 7.99951C3.07968 7.94413 3.04961 7.89401 2.98946 7.79377L2.01529 6.17011C1.95514 6.06987 1.92507 6.01975 1.92507 5.96437C1.92506 5.90899 1.95512 5.85886 2.01524 5.7586L2.9964 4.1224C3.0533 4.0275 3.08176 3.98005 3.12761 3.95408C3.17347 3.92811 3.2288 3.92811 3.33945 3.92811H5.32977C5.44036 3.92811 5.49566 3.92811 5.54151 3.90216C5.58735 3.87621 5.61581 3.82879 5.67273 3.73397L6.6619 2.08599C6.71881 1.99116 6.74727 1.94375 6.79312 1.9178C6.83896 1.89185 6.89426 1.89185 7.00486 1.89185H8.99529C9.10588 1.89185 9.16118 1.89185 9.20703 1.9178C9.25287 1.94375 9.28133 1.99116 9.33825 2.08599L10.3274 3.73397C10.3843 3.82879 10.4128 3.87621 10.4586 3.90216C10.5045 3.92811 10.5598 3.92811 10.6704 3.92811H12.6607C12.7713 3.92811 12.8267 3.92811 12.8725 3.95408C12.9184 3.98005 12.9468 4.0275 13.0037 4.1224L13.9849 5.7586C14.045 5.85886 14.0751 5.90899 14.0751 5.96437C14.0751 6.01975 14.045 6.06987 13.9849 6.17011L13.0107 7.79377Z M8 9.75012C8.9665 9.75012 9.75 8.96662 9.75 8.00012C9.75 7.03362 8.9665 6.25012 8 6.25012C7.0335 6.25012 6.25 7.03362 6.25 8.00012C6.25 8.96662 7.0335 9.75012 8 9.75012Z'
 		};
@@ -1453,13 +1451,23 @@ window.__ModuleLoader__.load({
 			// mode the day's value follows the configured shift, so a short day pays
 			// less rather than a full shift's worth.
 			const liveEarned = earnedAt(config, new Date());
-			const earnedNow = config.salaryMode === 'hourly' ? pay.hourly * (shift.servedMin / 60) : liveEarned;
+			// `earnedAt` already returns 0 off the configured week; hourly mode prices
+			// the served hours directly, so it needs the same gate.
+			const earnedNow = allowed && config.salaryMode === 'hourly'
+				? pay.hourly * (shift.servedMin / 60)
+				: liveEarned;
 			const shownProjected = allowed ? pay.daily : earnedNow;
 			// The true amount at this instant. The animation prices its own instant
 			// through the same helper, so the two can never disagree.
 			const earned = earnedAt(config, now);
-			const served = formatDuration(shift.servedMin);
-			const remaining = formatDuration(shift.remainingMin);
+			// A rest day serves nothing: the shift window is still solved (so the clock
+			// times stay meaningful) but nothing is counted against it. Without this the
+			// progress rail climbs through a Saturday as if the shift were running.
+			const servedMin = allowed ? shift.servedMin : 0;
+			const remainingMin = allowed ? shift.remainingMin : shift.workSpanMin;
+			const progress = allowed ? shift.progress : 0;
+			const served = formatDuration(servedMin);
+			const remaining = formatDuration(remainingMin);
 
 			// Countdown motion.
 			//
@@ -1547,9 +1555,24 @@ window.__ModuleLoader__.load({
 			const rootProps = {
 				className: 'pd-root',
 				ref: rootRef,
-				'data-raised': config.alwaysOnTop ? 'true' : undefined,
+				'data-raised': 'true',
 				style: { right: pos.right + 'px', top: pos.top + 'px' }
 			};
+
+			// One place for the three card-level controls. The status wording
+			// ("正在上班") used to sit here too, but the progress bar already says how
+			// far into the shift the card is, and three icons plus that text do not fit
+			// in 276px.
+			function iconButton(name, label, onClick, active) {
+				return h('button', {
+					type: 'button',
+					className: 'pd-iconbtn' + (active ? ' on' : ''),
+					title: label,
+					'aria-label': label,
+					onPointerDown: function (event) { event.stopPropagation(); },
+					onClick: function (event) { event.stopPropagation(); onClick(); }
+				}, h(Icon, { name: name, size: 13 }));
+			}
 
 			const header = h(
 				'div',
@@ -1562,22 +1585,14 @@ window.__ModuleLoader__.load({
 				},
 				h('span', { className: 'pd-dot' }),
 				h('span', { className: 'pd-title' }, '薪跳 SalaryDance'),
-				open
-					? null
-					: h('span', { className: 'pd-status' },
-							allowed
-								? (shift.after ? t('status.done') : shift.before ? t('status.before') : t('status.working'))
-								: t('status.off')
-						),
-				open
-					? h('button', {
-							type: 'button',
-							className: 'pd-iconbtn',
-							'aria-label': t('action.collapse'),
-							onPointerDown: function (event) { event.stopPropagation(); },
-							onClick: function (event) { event.stopPropagation(); setOpen(false); setStep(1); }
-						}, h(Icon, { name: 'close', size: 12 }))
-					: null
+				h('span', { className: 'pd-head-actions' },
+					(!open && config.miniFloat)
+						? iconButton('window', t('tip.miniOff'), function () { update({ miniFloat: false }); }, true)
+						: (!open ? iconButton('window', t('tip.miniOn'), function () { update({ miniFloat: true }); }, false) : null),
+					open
+						? iconButton('close', t('action.collapse'), function () { setOpen(false); setStep(1); }, false)
+						: iconButton('gear', t('action.configure'), function () { setOpen(true); setStep(1); }, false)
+				)
 			);
 
 			function spanConn() {
@@ -1585,7 +1600,7 @@ window.__ModuleLoader__.load({
 			}
 
 			function stepChip(index) {
-				const labels = [t('step.salary'), t('step.time'), t('step.prefs')];
+				const labels = [t('step.salary'), t('step.time')];
 				return h(
 					'span',
 					{ className: 'pd-step' + (step === index ? ' on' : '') },
@@ -1599,7 +1614,7 @@ window.__ModuleLoader__.load({
 			}
 
 			function stepRail() {
-				return h('div', { className: 'pd-steps' }, stepChip(1), spanConn(), stepChip(2), spanConn(), stepChip(3));
+				return h('div', { className: 'pd-steps' }, stepChip(1), spanConn(), stepChip(2));
 			}
 
 			function calendarNote() {
@@ -1807,11 +1822,14 @@ window.__ModuleLoader__.load({
 				);
 			}			const cardBody = open
 				? h('div', null,
-						h('div', { className: 'pd-panel-head' }, stepTab(1), spanConn(), stepTab(2), spanConn(), stepTab(3)),
+						// The step names live in the rail inside the panel; this row only
+						// carries the way back out, so nothing is said twice.
+						h('div', { className: 'pd-panel-head' },
+							iconButton('close', t('action.collapse'), function () { setOpen(false); setStep(1); }, false)
+						),
 						h('div', { className: 'pd-panel' },
 							step === 1 ? stepSalary() : null,
 							step === 2 ? stepSchedule() : null,
-							step === 3 ? stepPrefs() : null,
 							h('div', { className: 'pd-panel-actions' },
 								step > 1
 									? h('button', {
@@ -1821,7 +1839,7 @@ window.__ModuleLoader__.load({
 											onClick: function () { setStep(step - 1); }
 										}, h(Icon, { name: 'chevron', size: 13 }))
 									: null,
-								step < 3
+								step < 2
 									? h('button', {
 											type: 'button',
 											className: 'pd-btn',
@@ -1855,9 +1873,9 @@ window.__ModuleLoader__.load({
 							role: 'progressbar',
 							'aria-valuemin': 0,
 							'aria-valuemax': 100,
-							'aria-valuenow': Math.round(shift.progress * 100),
+							'aria-valuenow': Math.round(progress * 100),
 							'aria-label': t('stat.progress')
-						}, h('span', { className: 'knob', style: { left: (shift.progress * 100).toFixed(2) + '%' } })),
+						}, h('span', { className: 'knob', style: { left: (progress * 100).toFixed(2) + '%' } })),
 						// The projection is worth trusting only if it says what it is
 						// projecting over, so the footer names the month and its actual
 						// working-day count rather than only an amount. The settings
@@ -1918,24 +1936,19 @@ window.__ModuleLoader__.load({
 				'unit.perDay': '元 / 天',
 				'unit.perHour': '元 / 时',
 				'list.separator': '、',
-				'status.working': '正在上班',
-				'status.before': '还未上班',
-				'status.after': '已下班',
-				'status.done': '今日已收工',
-				'status.off': '今日休息',
-				'mini.today': '今日',
 				'action.configure': '设置',
 				'action.next': '下一步',
 				'action.back': '上一步',
 				'action.done': '完成配置，开始使用',
 				'action.collapse': '收起',
+				'tip.miniOn': '切到精简模式',
+				'tip.miniOff': '退出精简模式',
 				'foot.monthTotal': '本月预计',
 				'foot.basisDate': '{year}年{month}月',
 				'foot.basisDays': '实际工作日 {days} {unit}',
 				'foot.basisDaily': '日薪 {amount} {unit}',
 				'step.salary': '薪资模式',
 				'step.time': '工作时间',
-				'step.prefs': '使用偏好',
 				'field.mode': '选择薪资模式',
 				'mode.monthly': '月薪',
 				'mode.daily': '日薪',
@@ -1967,15 +1980,7 @@ window.__ModuleLoader__.load({
 				'field.lunchStart.minute': '午休开始分钟',
 				'field.lunchEnd.hour': '午休结束小时',
 				'field.lunchEnd.minute': '午休结束分钟',
-				'field.theme': '主题',
-				'field.alwaysOnTop': '窗口始终置顶',
-				'field.mini': '迷你悬浮模式',
-				'field.autoLaunch': '开机自动启动',
-				'field.ratePreview': '当前费率（随月份变化）',
 				'hint.lunchOn': '午休时段不计入工作时长',
-				'hint.alwaysOnTop': '卡片始终显示在界面最上层',
-				'hint.mini': '只显示今日入账，点击展开主界面',
-				'hint.autoLaunch': '本插件是界面插件，实际由 DSH 进程启动时机决定',
 				'picker.hint': '滚动选择',
 				'note.monthly': '按法定节假日后当月实际工作日摊算。',
 				'note.daily': '每个工作日固定计价。',
@@ -1986,10 +1991,6 @@ window.__ModuleLoader__.load({
 				'note.holidays': '本月节假日：{names}',
 				'note.shift': '跨夜班次同样支持：下班时间早于上班时间即视为次日下班。',
 				'note.prefs': '以上偏好保存在本机浏览器中，不会上传。',
-				'rate.hourly': '时薪',
-				'rate.daily': '日薪',
-				'rate.workdays': '本月实际工作日',
-				'rate.monthTotal': '本月预计',
 			},
 			en: {
 				'caption.today': "Today's earnings",
@@ -2004,24 +2005,19 @@ window.__ModuleLoader__.load({
 				'unit.perDay': 'CNY / day',
 				'unit.perHour': 'CNY / h',
 				'list.separator': ', ',
-				'status.working': 'On shift',
-				'status.before': 'Not started',
-				'status.after': 'Off work',
-				'status.done': 'Done for today',
-				'status.off': 'Day off',
-				'mini.today': 'today',
 				'action.configure': 'Configure',
 				'action.next': 'Next',
 				'action.back': 'Back',
 				'action.done': 'Finish and start',
 				'action.collapse': 'Collapse',
+				'tip.miniOn': 'Switch to the compact view',
+				'tip.miniOff': 'Leave the compact view',
 				'foot.monthTotal': 'Month estimate',
 				'foot.basisDate': '{month}/{year}',
 				'foot.basisDays': '{days} working {unit}',
 				'foot.basisDaily': '{amount} {unit}/day',
 				'step.salary': 'Pay mode',
 				'step.time': 'Work hours',
-				'step.prefs': 'Preferences',
 				'field.mode': 'Pay mode',
 				'mode.monthly': 'Monthly',
 				'mode.daily': 'Daily',
@@ -2053,15 +2049,7 @@ window.__ModuleLoader__.load({
 				'field.lunchStart.minute': 'Break start minute',
 				'field.lunchEnd.hour': 'Break end hour',
 				'field.lunchEnd.minute': 'Break end minute',
-				'field.theme': 'Theme',
-				'field.alwaysOnTop': 'Always on top',
-				'field.mini': 'Mini float mode',
-				'field.autoLaunch': 'Launch on startup',
-				'field.ratePreview': 'Current rate (moves with the month)',
 				'hint.lunchOn': 'The break does not count as worked time',
-				'hint.alwaysOnTop': 'Keep the card above the interface',
-				'hint.mini': 'Show only today\u2019s earnings; click to expand',
-				'hint.autoLaunch': 'A UI plugin follows the DSH process, which owns when the UI mounts',
 				'picker.hint': 'scroll to pick',
 				'note.monthly': 'Spread over the month\u2019s actual working days after public holidays.',
 				'note.daily': 'A fixed rate for every working day.',
@@ -2072,10 +2060,6 @@ window.__ModuleLoader__.load({
 				'note.holidays': 'Holidays this month: {names}',
 				'note.shift': 'Overnight shifts work too: an end earlier than the start means the next day.',
 				'note.prefs': 'These preferences stay in this browser and are never uploaded.',
-				'rate.hourly': 'Hourly',
-				'rate.daily': 'Daily',
-				'rate.workdays': 'Working days this month',
-				'rate.monthTotal': 'Month estimate',
 			}
 		};
 

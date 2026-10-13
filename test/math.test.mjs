@@ -479,7 +479,15 @@ const beforeHours = render('2026-10-14T07:10:00', { salaryMode: 'daily', dailySa
 check('班前今日预计 ¥500.00', hasText(beforeHours, '¥500.00'), 'true');
 
 const saturday = render('2026-10-17T11:00:00', null);
-check('周六显示今日休息', leaves(saturday).includes('今日休息'), 'true');
+// The header no longer carries status wording, so a rest day is read where it is
+// shown: no progress through the shift, and nothing projected for the day.
+check('周六无班次进度', progressOf(saturday), 0);
+check('周六今日预计为 0', hasText(saturday, '¥0.00'), 'true');
+// The rule lives in earnedAt, so it holds for every caller — including hourly
+// mode, which prices served hours rather than reading earnedAt's rate.
+check('周六 earnedAt 为 0', api.earnedAt(baseConfig({ monthlySalary: 8000 }), new Date('2026-10-17T11:00:00')), 0);
+check('周六整日不累积（15:00 仍为 0）', api.earnedAt(baseConfig({ monthlySalary: 8000 }), new Date('2026-10-17T15:00:00')), 0);
+check('工作日同一时刻不为 0', api.earnedAt(baseConfig({ monthlySalary: 8000 }), new Date('2026-10-14T15:00:00')) > 0, 'true');
 
 const saturdayMorning = render('2026-10-17T07:00:00', { salaryMode: 'daily', dailySalary: 500 });
 check('周六班前入账 ¥0.00', hasText(saturdayMorning, '¥0.00'), 'true');
@@ -751,7 +759,7 @@ console.log('\n--- 本地存储说明已移除 ---');
 function renderOpenPanelAt(stepIndex) {
   return renderOpenPanel('2026-10-14T15:00:00', { monthlySalary: 8000 }, stepIndex);
 }
-const panelSteps = [1, 2, 3].map(renderOpenPanelAt);
+const panelSteps = [1, 2].map(renderOpenPanelAt);
 
 panelSteps.forEach((tree, index) => {
   check('步骤 ' + (index + 1) + ' 无说明块', nodeByClass(tree, 'pd-seal'), 'null');
@@ -763,6 +771,69 @@ check('英文字典也已移除', Object.prototype.hasOwnProperty.call(api.DICTI
 // The stylesheet must not keep the rules either.
 const cssNoCommentsForSeal = api.CSS.replace(/\/\*[\s\S]*?\*\//g, '');
 check('样式表已移除 .pd-seal', cssNoCommentsForSeal.includes('.pd-seal'), 'false');
+
+/* ------------------------------------------------------------------ *
+ * 4j. The card's header controls
+ *
+ * Theme and mini mode moved out of the settings panel and onto the card as two
+ * icon buttons, so they are checked where they now live.
+ * ------------------------------------------------------------------ */
+
+console.log('\n--- 头部图标 ---');
+
+/** Every header icon button, in order. */
+function headerButtons(tree) {
+  const bar = nodeByClass(tree, 'pd-head-actions');
+  return bar === null ? [] : bar.children;
+}
+
+function clickHeader(tree, index) {
+  const buttons = headerButtons(tree);
+  buttons[index].props.onClick({ stopPropagation: function () {} });
+  return renderKeepingState();
+}
+
+// Theme cycles light → dark → system → light, and the icon follows.
+const themed = render('2026-10-14T10:00:00', { monthlySalary: 8000, theme: 'light' });
+let buttons = headerButtons(themed);
+check('头部有三个图标按钮', buttons.length, 3);
+check('第一个是主题', buttons[0].props.title.indexOf('主题') === 0, 'true');
+check('主题按钮提示下一个模式', buttons[0].props.title.includes('深色'), 'true');
+check('亮色时图标是太阳', buttons[0].children[0].props.name, 'sun');
+check('主题按钮有可访问名称', typeof buttons[0].props['aria-label'] === 'string', 'true');
+check('第二个是精简模式', buttons[1].props.title, '切到精简模式');
+check('第三个是设置', buttons[2].props.title, '设置');
+check('设置按钮用齿轮图标', buttons[2].children[0].props.name, 'gear');
+// No button may render a text child: they are icon-only controls. The Icon element
+// is left un-invoked by this harness, so its path data is not text.
+check('三个按钮都无文字子节点', buttons.every(
+  (b) => !b.children.some((child) => typeof child === 'string' || typeof child === 'number')
+), 'true');
+
+// Cycling the theme must land on dark, then system, then back to light.
+let cycleTree = clickHeader(themed, 0);
+check('点一下主题变深色', states[0].theme, 'dark');
+check('深色时图标是月亮', headerButtons(cycleTree)[0].children[0].props.name, 'moon');
+cycleTree = clickHeader(cycleTree, 0);
+check('再点变跟随系统', states[0].theme, 'system');
+check('跟随系统时图标是显示器', headerButtons(cycleTree)[0].children[0].props.name, 'monitor');
+cycleTree = clickHeader(cycleTree, 0);
+check('第三次回到亮色', states[0].theme, 'light');
+
+// The mini toggle switches the card into the compact view.
+const plain = render('2026-10-14T10:00:00', { monthlySalary: 8000, miniFloat: false });
+check('默认不是精简模式', nodeByClass(plain, 'pd-mini'), 'null');
+const compact = clickHeader(plain, 1);
+check('点图标即切到精简模式', states[0].miniFloat, 'true');
+check('卡片换成精简视图', nodeByClass(compact, 'pd-mini') !== null, 'true');
+const back = clickHeader(compact, 1);
+check('精简模式下再点即退出', states[0].miniFloat, 'false');
+check('卡片换回完整视图', nodeByClass(back, 'pd-mini'), 'null');
+
+// The settings button still opens the two-step panel.
+const opened = clickHeader(back, 2);
+check('齿轮打开设置面板', nodeByClass(opened, 'pd-panel') !== null, 'true');
+check('面板只有两个步骤', hasText(opened, '使用偏好'), 'false');
 
 /* ------------------------------------------------------------------ *
  * 4i. The compact (mini float) view
@@ -1094,7 +1165,7 @@ check('中英词条数量一致', zhKeys.length, enKeys.length);
 check('仅中文独有的词条', zhKeys.filter((k) => !enKeys.includes(k)).join(',') || '(none)', '(none)');
 check('仅英文独有的词条', enKeys.filter((k) => !zhKeys.includes(k)).join(',') || '(none)', '(none)');
 
-[[undefined, '卡片'], [1, '步骤 1'], [2, '步骤 2'], [3, '步骤 3']].forEach(([stepIndex, label]) => {
+[[undefined, '卡片'], [1, '步骤 1'], [2, '步骤 2']].forEach(([stepIndex, label]) => {
   const initialState = stepIndex === undefined ? undefined : [undefined, true, stepIndex];
   const tree = render('2026-10-14T15:00:00', { monthlySalary: 8000 }, initialState);
   const missing = leaves(tree).filter((leaf) => leaf.startsWith('MISSING:'));
