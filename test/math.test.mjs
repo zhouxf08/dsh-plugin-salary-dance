@@ -765,6 +765,56 @@ const cssNoCommentsForSeal = api.CSS.replace(/\/\*[\s\S]*?\*\//g, '');
 check('样式表已移除 .pd-seal', cssNoCommentsForSeal.includes('.pd-seal'), 'false');
 
 /* ------------------------------------------------------------------ *
+ * 4g. Stored-config migration
+ *
+ * The switch that tells a hand-set count from the calendar did not exist in the
+ * version before it, so old storage has to be read correctly. This was broken:
+ * the migration ran *after* the fix-up loop had already coerced the absent field
+ * to false, so the "absent" test could never fire.
+ * ------------------------------------------------------------------ */
+
+console.log('\n--- 存储迁移 ---');
+const STORE_KEY = 'dsh-plugin-salary-dance/config.v1';
+
+/** What `loadConfig` makes of a stored record. */
+function migrate(stored) {
+  globalThis.window.localStorage._v.clear();
+  if (stored !== null) globalThis.window.localStorage.setItem(STORE_KEY, JSON.stringify(stored));
+  const loaded = api.loadConfig();
+  return { mw: loaded.manualWorkdays, ov: loaded.manualWorkdaysOverride };
+}
+
+// A record written before the switch existed: the field is absent, not false.
+const legacy = {
+  salaryMode: 'monthly', monthlySalary: 8000, manualWorkdays: 5,
+  workDays: [1, 2, 3, 4, 5], startTime: '09:00', endTime: '18:00',
+  lunchEnabled: true, lunchStart: '12:00', lunchEnd: '13:00', theme: 'light'
+};
+
+// The switch is a tri-state, so it is named rather than compared through JSON,
+// which renders both `null` and the string "null" the same way.
+function modeOf(state) {
+  if (state.ov === true) return 'override';
+  if (state.ov === false) return 'released';
+  if (state.ov === null) return 'auto';
+  return 'unnormalized:' + String(state.ov);
+}
+
+const legacyMode = migrate(legacy);
+check('旧记录 mw=5 迁为自定', legacyMode.mw + '/' + modeOf(legacyMode), '5/override');
+check('旧记录 mw=20 迁为自定', modeOf(migrate({ ...legacy, manualWorkdays: 20 })), 'override');
+check('旧记录 mw=0 留在自动', modeOf(migrate({ ...legacy, manualWorkdays: 0 })), 'auto');
+check('无存储即全新安装', modeOf(migrate(null)), 'auto');
+
+// The new tri-state must survive a round trip: this is what a fresh install
+// persists, and it has to keep reading as automatic.
+check('新格式 ov=null 仍是自动', modeOf(migrate({ ...legacy, manualWorkdays: 18, manualWorkdaysOverride: null })), 'auto');
+check('新格式 ov=true 是自定', modeOf(migrate({ ...legacy, manualWorkdays: 20, manualWorkdaysOverride: true })), 'override');
+check('新格式 ov=false 保持释放', modeOf(migrate({ ...legacy, manualWorkdays: 18, manualWorkdaysOverride: false })), 'released');
+check('脏数据 ov="yes" 归为自动', modeOf(migrate({ ...legacy, manualWorkdays: 18, manualWorkdaysOverride: 'yes' })), 'auto');
+check('缺失字段不留 undefined', modeOf(migrate({ monthlySalary: 8000, manualWorkdays: 20 })), 'override');
+
+/* ------------------------------------------------------------------ *
  * 4f. The working-days row: a calendar readout that can be overridden
  *
  * The row doubles as the calendar's readout and as a hand-set override, so the

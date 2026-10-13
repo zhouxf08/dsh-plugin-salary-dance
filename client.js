@@ -187,7 +187,10 @@ window.__ModuleLoader__.load({
 			lunchEnabled: true,
 			lunchStart: '12:00',
 			lunchEnd: '13:00',
-			manualWorkdaysOverride: false, // the row is only an override once edited
+			// null = never set (auto); true = hand-set override; false = explicitly
+			// released by the reset control. A plain `false` default cannot distinguish
+			// "never set" from "set back to auto", which the migration below needs.
+			manualWorkdaysOverride: null,
 			theme: 'light', // 'light' | 'dark' | 'system'
 			alwaysOnTop: true,
 			miniFloat: false,
@@ -215,6 +218,12 @@ window.__ModuleLoader__.load({
 			}
 			if (parsed === null || typeof parsed !== 'object') return config;
 			const merged = Object.assign(config, parsed);
+			// Migration first: it has to see the stored shape, not the normalized one.
+			// Storage written before the switch existed carries a positive count and no
+			// flag at all, and such a count was hand-set, so it stays an override.
+			if (parsed.manualWorkdaysOverride === undefined && merged.manualWorkdays > 0) {
+				merged.manualWorkdaysOverride = true;
+			}
 			if (SALARY_MODES.indexOf(merged.salaryMode) < 0) merged.salaryMode = DEFAULT_CONFIG.salaryMode;
 			if (THEMES.indexOf(merged.theme) < 0) merged.theme = DEFAULT_CONFIG.theme;
 			if (!Array.isArray(merged.workDays)) merged.workDays = DEFAULT_CONFIG.workDays.slice();
@@ -228,14 +237,15 @@ window.__ModuleLoader__.load({
 			['startTime', 'endTime', 'lunchStart', 'lunchEnd'].forEach(function (key) {
 				if (!isClockString(merged[key])) merged[key] = DEFAULT_CONFIG[key];
 			});
-			['lunchEnabled', 'alwaysOnTop', 'miniFloat', 'autoLaunch', 'manualWorkdaysOverride'].forEach(function (key) {
+			['lunchEnabled', 'alwaysOnTop', 'miniFloat', 'autoLaunch'].forEach(function (key) {
 				merged[key] = merged[key] === true;
 			});
-			// Storage written before this flag existed carries a positive count but no
-			// switch; such a value was hand-set, so honour it as an override.
-			if (parsed.manualWorkdaysOverride === undefined && merged.manualWorkdays > 0) {
-				merged.manualWorkdaysOverride = true;
-			}
+			// Tri-state: anything that is not a real boolean falls back to the sentinel.
+			merged.manualWorkdaysOverride = merged.manualWorkdaysOverride === true
+				? true
+				: merged.manualWorkdaysOverride === false
+					? false
+					: null;
 			return merged;
 		}
 
@@ -1944,6 +1954,7 @@ window.__ModuleLoader__.load({
 			solveShift: solveShift,
 			computePay: computePay,
 			formatMoney: formatMoney,
+			loadConfig: loadConfig,
 			toMinutes: toMinutes,
 			DEFAULT_CONFIG: DEFAULT_CONFIG
 		};
