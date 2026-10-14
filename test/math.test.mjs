@@ -718,6 +718,19 @@ function nodeByClass(tree, className) {
   return found;
 }
 
+/** How many nodes carry this class. */
+function countByClass(tree, className) {
+  let count = 0;
+  (function walk(node) {
+    if (node === null || node === undefined) return;
+    if (Array.isArray(node)) { node.forEach(walk); return; }
+    if (typeof node !== 'object' || node.children === undefined) return;
+    if (node.props && typeof node.props.className === 'string' && node.props.className.split(' ').includes(className)) count += 1;
+    node.children.forEach(walk);
+  })(tree);
+  return count;
+}
+
 function allText(node, out = []) {
   if (node === null || node === undefined || typeof node === 'boolean') return out;
   if (typeof node === 'string' || typeof node === 'number') { out.push(String(node)); return out; }
@@ -727,8 +740,9 @@ function allText(node, out = []) {
 }
 
 const gearTree = render('2026-10-14T10:00:00', { monthlySalary: 8000 });
-const gear = nodeByClass(gearTree, 'pd-gear');
-check('卡片上有设置图标按钮', gear !== null, 'true');
+// The settings affordance is the header's second icon button.
+const gear = headerButtons(gearTree)[1];
+check('卡片上有设置图标按钮', gear !== null && gear !== undefined, 'true');
 check('设置按钮是 button', gear === null ? '(none)' : gear.type, 'button');
 check('设置按钮有点击处理', gear !== null && typeof gear.props.onClick === 'function', 'true');
 check('设置按钮有可访问名称', gear !== null && gear.props['aria-label'] === '设置', 'true');
@@ -750,16 +764,17 @@ check('gear 有齿形曲边（C 命令）', gearPath.includes('C'), 'true');
 check('gear 的外轮廓与内圆是两段', gearPath.split('M').length - 1, 2);
 // A sun is drawn from straight radial spokes; a cog is not.
 check('gear 不是放射线拼的', (gearPath.match(/\s[VH]\d/g) || []).length <= 8, 'true');
-// Two icons: the gear, and a caret that says the control opens something.
-check('按钮内有两个图标', gear === null ? '(none)' : gear.children.length, 2);
-check('第二个图标是展开指示', gear === null ? '(none)' : gear.children[1].props.name, 'chevron');
+// The header button is icon-only; the caret belonged to the old footer control.
+check('设置按钮只有一个图标', gear === null ? '(none)' : gear.children.length, 1);
 check('旧的整行操作区已移除', nodeByClass(gearTree, 'pd-actions'), 'null');
-check('底部是「总额 + 图标」一行', nodeByClass(gearTree, 'pd-foot-row') !== null, 'true');
+check('旧的 footer 齿轮已移除', nodeByClass(gearTree, 'pd-gear'), 'null');
+check('底部是「总额」一行', nodeByClass(gearTree, 'pd-foot-row') !== null, 'true');
 check('口径行仍在底部', hasText(gearTree, '实际工作日'), 'true');
-
-// The gear must not collide with the month figure it shares the row with.
+// With the settings button gone from this row it holds the month figure alone.
 const footRow = nodeByClass(gearTree, 'pd-foot-row');
-check('底部一行只有两个子元素', footRow === null ? '(none)' : footRow.children.length, 2);
+check('底部一行只有一个子元素', footRow === null ? '(none)' : footRow.children.length, 1);
+// Exactly two header icon buttons, so a second settings entry cannot sneak back in.
+check('头部图标按钮恰好两个', countByClass(gearTree, 'pd-iconbtn'), 2);
 
 /* ------------------------------------------------------------------ *
  * 4e. The settings panel carries no local-storage notice
@@ -816,47 +831,95 @@ function clickHeader(tree, index) {
   return renderKeepingState();
 }
 
-// Theme cycles light → dark → system → light, and the icon follows.
-const themed = render('2026-10-14T10:00:00', { monthlySalary: 8000, theme: 'light' });
-let buttons = headerButtons(themed);
-check('头部有三个图标按钮', buttons.length, 3);
-check('第一个是主题', buttons[0].props.title.indexOf('主题') === 0, 'true');
-check('主题按钮提示下一个模式', buttons[0].props.title.includes('深色'), 'true');
-check('亮色时图标是太阳', buttons[0].children[0].props.name, 'sun');
-check('主题按钮有可访问名称', typeof buttons[0].props['aria-label'] === 'string', 'true');
-check('第二个是精简模式', buttons[1].props.title, '切到精简模式');
-check('第三个是设置', buttons[2].props.title, '设置');
-check('设置按钮用齿轮图标', buttons[2].children[0].props.name, 'gear');
-// No button may render a text child: they are icon-only controls. The Icon element
-// is left un-invoked by this harness, so its path data is not text.
-check('三个按钮都无文字子节点', buttons.every(
+// The card follows the host's appearance, so its header holds two controls: the
+// compact-view toggle and the settings affordance. There is deliberately no theme
+// button — every colour comes from the host's tokens, which switch on
+// `body[data-ds-dark-theme]`, so a local toggle could not change anything.
+const themed = render('2026-10-14T10:00:00', { monthlySalary: 8000 });
+const buttons = headerButtons(themed);
+check('头部有两个图标按钮', buttons.length, 2);
+check('第一个是精简模式', buttons[0].props.title, '切到精简模式');
+check('第二个是设置', buttons[1].props.title, '设置');
+check('设置按钮用齿轮图标', buttons[1].children[0].props.name, 'gear');
+check('两个按钮都无文字子节点', buttons.every(
   (b) => !b.children.some((child) => typeof child === 'string' || typeof child === 'number')
 ), 'true');
+check('头部无主题按钮', buttons.some((b) => String(b.props.title).indexOf('主题') >= 0), 'false');
 
-// Cycling the theme must land on dark, then system, then back to light.
-let cycleTree = clickHeader(themed, 0);
-check('点一下主题变深色', states[0].theme, 'dark');
-check('深色时图标是月亮', headerButtons(cycleTree)[0].children[0].props.name, 'moon');
-cycleTree = clickHeader(cycleTree, 0);
-check('再点变跟随系统', states[0].theme, 'system');
-check('跟随系统时图标是显示器', headerButtons(cycleTree)[0].children[0].props.name, 'monitor');
-cycleTree = clickHeader(cycleTree, 0);
-check('第三次回到亮色', states[0].theme, 'light');
+// Only one settings affordance may exist: the footer used to carry a second gear,
+// which made the card show two of them.
+check('卡片上只有一个设置入口', countByClass(themed, 'pd-iconbtn') === 2, 'true');
+check('旧的 footer 齿轮已移除', nodeByClass(themed, 'pd-gear'), 'null');
 
 // The mini toggle switches the card into the compact view.
 const plain = render('2026-10-14T10:00:00', { monthlySalary: 8000, miniFloat: false });
 check('默认不是精简模式', nodeByClass(plain, 'pd-mini'), 'null');
-const compact = clickHeader(plain, 1);
+const compact = clickHeader(plain, 0);
 check('点图标即切到精简模式', states[0].miniFloat, 'true');
 check('卡片换成精简视图', nodeByClass(compact, 'pd-mini') !== null, 'true');
-const back = clickHeader(compact, 1);
+const back = clickHeader(compact, 0);
 check('精简模式下再点即退出', states[0].miniFloat, 'false');
 check('卡片换回完整视图', nodeByClass(back, 'pd-mini'), 'null');
 
 // The settings button still opens the two-step panel.
-const opened = clickHeader(back, 2);
+const opened = clickHeader(back, 1);
 check('齿轮打开设置面板', nodeByClass(opened, 'pd-panel') !== null, 'true');
 check('面板只有两个步骤', hasText(opened, '使用偏好'), 'false');
+
+// The panel used to show its steps twice: text tabs in the panel header and the
+// rail inside the step body. Only the rail survives, and it has to stay clickable
+// now that it carries the navigation, so both facts are pinned here.
+/** Every step chip in the open panel, in order. */
+function stepChips(tree) {
+  const chips = [];
+  (function walk(node) {
+    if (node === null || node === undefined) return;
+    if (Array.isArray(node)) { node.forEach(walk); return; }
+    if (typeof node !== 'object' || node.children === undefined) return;
+    if (node.props && typeof node.props.className === 'string'
+        && node.props.className.split(' ').includes('pd-step')) chips.push(node);
+    node.children.forEach(walk);
+  })(tree);
+  return chips;
+}
+
+/** The panel's own header row, which now only holds the way back out. */
+function panelHead(tree) {
+  let found = null;
+  (function walk(node) {
+    if (found !== null || node === null || node === undefined) return;
+    if (Array.isArray(node)) { node.forEach(walk); return; }
+    if (typeof node !== 'object' || node.children === undefined) return;
+    if (node.props && typeof node.props.className === 'string'
+        && node.props.className.split(' ').includes('pd-panel-head')) { found = node; return; }
+    node.children.forEach(walk);
+  })(tree);
+  return found;
+}
+
+check('面板里步骤条只出现一次（步骤 1）', countByClass(opened, 'pd-steps'), 1);
+check('步骤条有两个步骤', stepChips(opened).length, 2);
+check('当前步骤标了 aria-current', stepChips(opened).filter((c) => c.props['aria-current'] === 'step').length, 1);
+check('步骤项是可点击按钮', stepChips(opened).every((c) => c.type === 'button' && typeof c.props.onClick === 'function'), 'true');
+
+// Step 2 renders the same single rail, with the marker moved to the second chip.
+const secondStep = (function () {
+  const chips = stepChips(opened);
+  chips[1].props.onClick();
+  return renderKeepingState();
+})();
+check('面板里步骤条只出现一次（步骤 2）', countByClass(secondStep, 'pd-steps'), 1);
+check('点第二个步骤项即切到步骤 2', states[2], 2);
+check('步骤 2 的标记在第 2 项', stepChips(secondStep)[1].props['aria-current'], 'step');
+check('切回步骤 1', (function () {
+  stepChips(secondStep)[0].props.onClick();
+  return states[2];
+})(), 1);
+
+// The header row must not carry a second set of step labels again.
+const head = panelHead(opened);
+check('面板头部只剩收起按钮', head === null ? '(none)' : head.children.filter(Boolean).length, 1);
+check('面板头部不再列出步骤名', head === null ? '(none)' : allText(head).join(''), '');
 
 /* ------------------------------------------------------------------ *
  * 4i. The compact (mini float) view
