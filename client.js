@@ -616,21 +616,24 @@ window.__ModuleLoader__.load({
 .pd-stat + .pd-stat{ border-left:0.5px solid var(--dsw-alias-border-l2,rgba(0,0,0,.08)); }
 .pd-stat .k{ font-size:10.5px; color:var(--dsw-alias-label-tertiary,#8a9099); margin-bottom:3px; }
 .pd-stat .v{ font-size:12.5px; font-weight:600; font-variant-numeric:tabular-nums; }
-.pd-bar{
-  margin-top:12px;
-  height:8px;
+/* Both views draw the same progress bar: a filled, fully rounded track. The
+   compact view used to be a square 3px rail while this one was an 8px track with
+   a travelling dot, so the two views looked like different products. Sharing one
+   definition keeps them in step. */
+.pd-bar,
+.pd-mini-bar{
+  height:6px;
   border-radius:999px;
   background:var(--dsw-alias-border-l1,rgba(0,0,0,.07));
-  position:relative;
+  overflow:hidden;
 }
-.pd-bar .knob{
-  position:absolute;top:50%;left:0;
-  width:14px;height:14px;border-radius:50%;
+.pd-bar{ margin-top:12px; }
+.pd-bar .fill,
+.pd-mini-bar .fill{
+  display:block;
+  height:100%;
+  border-radius:999px;
   background:var(--dsw-alias-brand-primary,#f68b1f);
-  border:2px solid var(--dsw-alias-bg-layer-2,#fff);
-  box-shadow:0 1px 4px rgba(0,0,0,.22);
-  transform:translate(-50%,-50%);
-  box-sizing:border-box;
 }
 .pd-rate{
   display:flex;align-items:center;justify-content:space-between;
@@ -699,9 +702,6 @@ window.__ModuleLoader__.load({
   color:var(--dsw-alias-label-secondary,#4a505a);
   font-variant-numeric:tabular-nums;
 }
-/* How far through the shift, drawn at the card's bottom edge. */
-.pd-mini-bar{ height:3px; background:var(--dsw-alias-border-l1,rgba(0,0,0,.07)); }
-.pd-mini-bar .fill{ display:block; height:100%; background:var(--dsw-alias-brand-primary,#f68b1f); }
 .pd-panel{
   padding:0 14px 14px;
   /* The calendar makes step 2 tall; on a short window the panel scrolls rather
@@ -1944,7 +1944,10 @@ window.__ModuleLoader__.load({
 							'aria-valuemax': 100,
 							'aria-valuenow': Math.round(progress * 100),
 							'aria-label': t('stat.progress')
-						}, h('span', { className: 'knob', style: { left: (progress * 100).toFixed(2) + '%' } })),
+						}, h('span', {
+							className: 'fill',
+							style: { width: (progress * 100).toFixed(2) + '%' }
+						})),
 						// The projection is worth trusting only if it says what it is
 						// projecting over, so the footer names the month and its actual
 						// working-day count rather than only an amount. The settings

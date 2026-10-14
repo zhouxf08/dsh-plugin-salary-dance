@@ -1003,6 +1003,23 @@ const miniExpected = miniRatePerSec * MINI_SECONDS;
 check('精简模式递增', miniGain > 0, 'true');
 check('精简模式涨幅与费率一致（±2 分）', Math.abs(miniGain - miniExpected) <= 0.02, 'true');
 
+// Both views must draw the same progress bar. They used to differ in every
+// respect — 8px pill with a travelling dot versus a square 3px rail — so these
+// pin the shared shape, not just each bar's own value.
+const fullBar = nodeByClass(render('2026-10-14T10:00:00', { monthlySalary: 8000 }), 'pd-bar');
+const miniBar = nodeByClass(render('2026-10-14T10:00:00', { monthlySalary: 8000, miniFloat: true }), 'pd-mini-bar');
+check('统一后：完整卡片有进度条', fullBar !== null, 'true');
+check('统一后：精简模式有进度条', miniBar !== null, 'true');
+check('两条进度值一致', fullBar.props['aria-valuenow'], miniBar.props['aria-valuenow']);
+check('两条都用 fill 画', fullBar.children[0].props.className, 'fill');
+check('两条都用 fill 画（精简）', miniBar.children[0].props.className, 'fill');
+check('两条宽度一致', fullBar.children[0].props.style.width, miniBar.children[0].props.style.width);
+// One CSS rule pair covers both, so they cannot drift apart visually again.
+check('CSS 里两条共用轨道定义', /\.pd-bar,\s*\n\.pd-mini-bar\{/.test(api.CSS), 'true');
+check('CSS 里两条共用填充定义', /\.pd-bar \.fill,\s*\n\.pd-mini-bar \.fill\{/.test(api.CSS), 'true');
+check('旧的圆点画法已移除', api.CSS.includes('.knob'), 'false');
+check('两条轨道同高', (api.CSS.match(/height:6px;/g) || []).length >= 1, 'true');
+
 // Turning mini mode off restores the full card.
 const full = render('2026-10-14T10:00:00', { monthlySalary: 8000, miniFloat: false });
 check('关掉精简模式即完整卡片', nodeByClass(full, 'pd-amount') !== null, 'true');
