@@ -186,7 +186,7 @@ function localeAwareT(key) {
  * figure converged to well under the true amount and a bigger true delta made
  * the rendered figure move *less*.
  */
-function driveTicker(startIso, seconds, patch) {
+function driveTicker(startIso, seconds, patch, open) {
   const config = baseConfig(patch);
   globalThis.window.localStorage.setItem('dsh-plugin-salary-dance/config.v1', JSON.stringify(config));
 
@@ -203,9 +203,17 @@ function driveTicker(startIso, seconds, patch) {
   states.length = 0;
   effects.length = 0;
   refs.length = 0;
+  // Slots are [config, open, step, now, tick, pos]; the compact view leaves `open`
+  // false, which is the state the mini figure is drawn in.
+  states[0] = config;
+  states[1] = open === true;
+  states[3] = new Date(start);
 
   // Render without clearing the hook slots afterwards, so state, refs and
   // effects survive across frames the way they do in a real tree.
+  // The compact view draws its amount in its own block, so the sampled container
+  // follows the view under test.
+  const amountClass = config.miniFloat && open !== true ? 'pd-mini-main' : 'pd-amount';
   function renderOnce() {
     cursor = 0;
     rafQueue = [];
@@ -226,8 +234,8 @@ function driveTicker(startIso, seconds, patch) {
     rafQueue = [];
     queue.forEach((cb) => cb(clock));
     renderOnce();
-    const text = amountTextOf(lastTree);
-    const shown = amountOf(lastTree);
+    const text = amountTextOf(lastTree, amountClass);
+    const shown = amountOf(lastTree, amountClass);
     if (shown !== null) samples.push({ clock, shown, text });
   }
 
@@ -236,7 +244,8 @@ function driveTicker(startIso, seconds, patch) {
 }
 
 /** The amount line as rendered text, e.g. "¥301.4938". */
-function amountTextOf(tree) {
+function amountTextOf(tree, className) {
+  const target = className === undefined ? 'pd-amount' : className;
   let text = '';
   let found = false;
   (function walk(node, inside) {
@@ -247,7 +256,7 @@ function amountTextOf(tree) {
     }
     if (Array.isArray(node)) { node.forEach((child) => walk(child, inside)); return; }
     if (typeof node === 'object') {
-      const isAmount = node.props !== undefined && node.props.className === 'pd-amount';
+      const isAmount = node.props !== undefined && node.props.className === target;
       if (isAmount) found = true;
       if (node.children) walk(node.children, inside || isAmount);
     }
@@ -256,7 +265,8 @@ function amountTextOf(tree) {
 }
 
 /** The number rendered inside the card's amount block. */
-function amountOf(tree) {
+function amountOf(tree, className) {
+  const target = className === undefined ? 'pd-amount' : className;
   let text = '';
   let found = false;
   (function walk(node, inside) {
@@ -267,7 +277,7 @@ function amountOf(tree) {
     }
     if (Array.isArray(node)) { node.forEach((child) => walk(child, inside)); return; }
     if (typeof node === 'object') {
-      const isAmount = node.props !== undefined && node.props.className === 'pd-amount';
+      const isAmount = node.props !== undefined && node.props.className === target;
       if (isAmount) found = true;
       if (node.children) walk(node.children, inside || isAmount);
     }
@@ -773,6 +783,19 @@ const cssNoCommentsForSeal = api.CSS.replace(/\/\*[\s\S]*?\*\//g, '');
 check('样式表已移除 .pd-seal', cssNoCommentsForSeal.includes('.pd-seal'), 'false');
 
 /* ------------------------------------------------------------------ *
+ * 4k. The Loader row id
+ *
+ * It is what the Plugin Manager card prints as the plugin's row, so it is kept
+ * in step with the package name. The storage key deliberately is not.
+ * ------------------------------------------------------------------ */
+
+console.log('\n--- Loader row id ---');
+const rowId = api.ROW_ID;
+check('row id 是 salarydance', rowId, 'salarydance');
+check('row id 与包名同源', rowId, api.PACKAGE_NAME.replace('dsh-plugin-', '').replace(/-/g, ''));
+check('存储键由包名派生（持久化契约）', api.STORAGE_KEY, api.PACKAGE_NAME + '/config.v1');
+
+/* ------------------------------------------------------------------ *
  * 4j. The card's header controls
  *
  * Theme and mini mode moved out of the settings panel and onto the card as two
@@ -892,6 +915,29 @@ check('预计在右侧指标区', textUnder(mini, 'pd-mini-metrics').includes('�
 // A day off projects only what has been earned, matching the full card.
 const miniOff = miniTree('2026-10-17T07:00:00', { salaryMode: 'daily', dailySalary: 500 });
 check('休息日班前精简模式为 0', /¥0\.00/.test(textUnder(miniOff, 'pd-mini')), 'true');
+
+// The compact figure has to tick as well. Reading it at a single instant could not
+// catch the regression that froze it, so it is driven frame by frame like the full
+// card — the mini view stays collapsed (`open` false) throughout.
+const MINI_SECONDS = 6;
+const miniFrames = driveTicker('2026-10-14T10:00:00', MINI_SECONDS, { monthlySalary: 8000, miniFloat: true }, false);
+check('精简模式采集到帧', miniFrames.length > 100, 'true');
+const miniTexts = miniFrames.map((sample) => sample.text).filter((text) => text !== null);
+check('精简模式金额有多个取值', new Set(miniTexts).size > 1, 'true');
+check('精简模式始终是两位小数', miniTexts.every((text) => /^¥[0-9,]+\.[0-9]{2}$/.test(text)), 'true');
+
+// Self-consistent rather than hand-computed: the growth over the run must match the
+// rate the same fixture implies. This is what catches a figure that moves too fast
+// or too slow, not just one that is frozen.
+// Keep the decimal point: stripping everything but digits and commas turned
+// "¥55.64" into 5564, i.e. a hundredfold error in the very quantity under test.
+const miniNums = miniTexts.map((text) => Number(text.replace(/[^0-9.,]/g, '').replace(/,/g, '')));
+const miniGain = miniNums[miniNums.length - 1] - miniNums[0];
+const miniRatePerSec = api.earnedAt(baseConfig({ monthlySalary: 8000 }), new Date('2026-10-14T10:00:01'))
+  - api.earnedAt(baseConfig({ monthlySalary: 8000 }), new Date('2026-10-14T10:00:00'));
+const miniExpected = miniRatePerSec * MINI_SECONDS;
+check('精简模式递增', miniGain > 0, 'true');
+check('精简模式涨幅与费率一致（±2 分）', Math.abs(miniGain - miniExpected) <= 0.02, 'true');
 
 // Turning mini mode off restores the full card.
 const full = render('2026-10-14T10:00:00', { monthlySalary: 8000, miniFloat: false });

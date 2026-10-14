@@ -1,7 +1,8 @@
 # 薪跳 SalaryDance —— a floating, always-on salary counter for the DSH Web UI.
 #
 # This patch inserts one Loader row. The row's id is what the Plugin Manager
-# page and `cordis.patch.yml` overrides address, so keep it stable.
+# page displays as the plugin's row and what `cordis.patch.yml` overrides
+# address, so it is kept in step with the package name.
 - insert:
     - id: salarydance
       name: dsh-plugin-salary-dance

@@ -16,6 +16,9 @@ window.__ModuleLoader__.load({
 		const inject = ['slots', 'locale'];
 
 		const NS = 'salarydance';
+		/** The Loader row id, kept in step with the package name. */
+		const ROW_ID = 'salarydance';
+		const PACKAGE_NAME = 'dsh-plugin-salary-dance';
 		const STYLE_TAG_ID = 'dsh-plugin-salary-dance/widget.css';
 		// A persistence contract: keep it in step with PACKAGE_NAME, since changing it
 		// discards every existing user's saved configuration.
@@ -1408,16 +1411,24 @@ window.__ModuleLoader__.load({
 			const [pos, setPos] = React.useState({ right: 20, top: 56 });
 			const rootRef = React.useRef(null);
 			const dragRef = React.useRef(null);
+			const rafRef = React.useRef(null);
+			// Latest per-frame price of this instant; `null` until the first frame, which
+			// is how the renderer knows to fall back to the heartbeat's reading.
+			const frameRef = React.useRef(null);
+			// Read through a ref so the animation loop never captures a stale config.
+			const configRef = React.useRef(config);
+			configRef.current = config;
 
 			// The calendar's answer for the current month. Declared before the effects
 			// below, which keep the working-days row in step with it.
 			const actual = monthWorkdays(now.getFullYear(), now.getMonth(), config.workDays);
 			const actualCount = actual.count;
 
-			// One one-second heartbeat drives the whole card. It stops while the card
-			// sits in mini mode, so an idle page stays quiet.
+			// One one-second heartbeat advances the clock the card reads. It used to be
+			// skipped in mini mode to keep an idle page quiet — but the amount is derived
+			// from that clock, so skipping it froze the mini figure. It now runs in both
+			// modes: one `setNow` a second is not what made the page busy.
 			React.useEffect(function () {
-				if (config.miniFloat && !open) return undefined;
 				const id = window.setInterval(function () { setNow(new Date()); }, 1000);
 				return function () { window.clearInterval(id); };
 			}, [config.miniFloat, open]);
@@ -1462,6 +1473,10 @@ window.__ModuleLoader__.load({
 			// The true amount at this instant. The animation prices its own instant
 			// through the same helper, so the two can never disagree.
 			const earned = earnedAt(config, now);
+			// Both the full card and the compact view read this one value, so they can
+			// never disagree about what has been earned. Before the first animation frame
+			// it falls back to the heartbeat's reading.
+			const shownEarned = frameRef.current === null ? earned : frameRef.current;
 			// A rest day serves nothing: the shift window is still solved (so the clock
 			// times stay meaningful) but nothing is counted against it. Without this the
 			// progress rail climbs through a Saturday as if the shift were running.
@@ -1482,16 +1497,20 @@ window.__ModuleLoader__.load({
 			// month-shaped: the working-day count, the rates, the day-off status. And
 			// the displayed figure is rounded *down* rather than to nearest, so the card
 			// can never claim an amount that has not been earned yet.
-			const rafRef = React.useRef(null);
 
 			React.useEffect(function () {
-				if (config.miniFloat && !open) return undefined;
+				// Kept in mini mode too: this loop is what makes the figure move. It only
+				// bumps a counter and re-renders, so the compact view stays cheap.
 				const reduce = typeof window.matchMedia === 'function'
 					&& window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 				// Under reduced motion the second heartbeat is enough; otherwise the
 				// counter advances once per frame, which is what makes the tail turn.
 				if (reduce) return undefined;
 				function frame() {
+					// Priced from the live clock, not from the heartbeat's `earned`: that
+					// keeps the figure independent of how often month-level state refreshes,
+					// which is exactly the coupling that froze the compact view.
+					frameRef.current = earnedAt(configRef.current, new Date());
 					setTick(function (previous) { return previous + 1; });
 					rafRef.current = window.requestAnimationFrame(frame);
 				}
@@ -2079,7 +2098,7 @@ window.__ModuleLoader__.load({
 				return ctx.slots.register(
 					{
 						name: 'shell.overlay',
-						id: 'salarydance',
+						id: ROW_ID,
 						order: 5,
 						locale: NS,
 						inject: function () { return { frame: 'salarydance' }; }
@@ -2095,6 +2114,9 @@ window.__ModuleLoader__.load({
 		/** Pure helpers and data exported for the headless regression tests. */
 		exports.__internal = {
 			CSS: CSS,
+			ROW_ID: ROW_ID,
+			PACKAGE_NAME: PACKAGE_NAME,
+			STORAGE_KEY: STORAGE_KEY,
 			ICON_PATHS: PATHS,
 			DICTIONARIES: DICTIONARIES,
 			HOLIDAYS: HOLIDAYS,

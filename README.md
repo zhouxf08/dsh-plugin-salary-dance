@@ -183,7 +183,7 @@ D = 本月周一至周五的天数
 ```
 dsh-plugin-salary-dance/
 ├── package.json          # bundle 清单：dsh.bundle.patch + dsh.client
-├── cordis.patch.yml      # 向 profile 插入 id 为 salarydance 的 Loader row（row id 稳定不变）
+├── cordis.patch.yml      # 向 profile 插入 id 为 salarydance 的 Loader row
 ├── index.js              # Host 半：空实现（整个功能在浏览器侧）
 ├── client.js             # 浏览器半：卡片 + 设置面板 + 全部计算
 ├── icon.svg              # 插件管理器卡片图标
@@ -209,7 +209,8 @@ DSH 把界面插件组织成 **bundle**：一个 npm 包只要在 `package.json`
 ```
 
 - `cordis.patch.yml` 插入一行 `id: salarydance`、`name: dsh-plugin-salary-dance`。
-  row id 与包名是两个东西：id 是配置覆盖用的稳定锚点，改包名时刻意不动它。
+  row id 是配置覆盖用的锚点，与包名保持一致（改包名时一并改），这样插件管理器卡片上
+  显示的行名就是 `salarydance`。
 - `index.js` 是 Host 半，导出 `apply()`；这里刻意什么都不做，让 bundle 在没有任何 Web 载体的 Host 上也合法。
 - `client.js` 是浏览器半，用 `window.__ModuleLoader__.load({ id, factory })` 注册工厂，`apply(ctx)` 里：
   - `ctx.effect(installStyles)` 注入样式表；
