@@ -385,7 +385,10 @@ window.__ModuleLoader__.load({
 				progress: workSpan > 0 ? Math.min(1, Math.max(0, servedRaw / workSpan)) : 0,
 				before: resolvedNow < startMin,
 				after: resolvedNow >= startMin + span,
-				overnight: overnight
+				overnight: overnight,
+				// Inside the unpaid break: the amount legitimately stands still, so the
+				// card has to say so rather than looking frozen.
+				onBreak: breakMin > 0 && clampedNow > lunchStart && clampedNow < lunchEnd
 			};
 		}
 
@@ -571,6 +574,13 @@ window.__ModuleLoader__.load({
 .pd-head-actions{ margin-left:auto; display:flex; align-items:center; gap:2px; flex:0 0 auto; }
 .pd-iconbtn:focus-visible{ outline:2px solid var(--dsw-alias-state-business-primary,#4a90e2); outline-offset:1px; }
 .pd-body{ padding:0 14px 11px; }
+.pd-break{
+  flex:0 0 auto;
+  padding:1px 6px; border-radius:999px;
+  font-size:9.5px; font-weight:600;
+  background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.06));
+  color:var(--dsw-alias-label-secondary,#4a505a);
+}
 .pd-caption{
   display:flex;
   align-items:center;
@@ -1863,6 +1873,8 @@ window.__ModuleLoader__.load({
 								h('span', { className: 'sym' }, '¥'),
 								h('span', { className: 'v' }, groupMoney(formatMoney(Math.floor(shownEarned * 10000) / 10000, 4)))
 							),
+							// Without this the compact view just looks stuck during the break.
+							shift.onBreak ? h('span', { className: 'pd-break' }, t('stat.onBreak')) : null,
 							h('div', { className: 'pd-mini-metrics' },
 								h('div', null,
 									h('span', { className: 'k' }, t('stat.rate')),
@@ -1925,6 +1937,7 @@ window.__ModuleLoader__.load({
 				: h('div', { className: 'pd-body' },
 						h('div', { className: 'pd-caption' },
 							h('span', null, t('caption.today')),
+							shift.onBreak ? h('span', { className: 'pd-break' }, t('stat.onBreak')) : null,
 							h('span', { className: 'pd-caprate' }, '¥' + hourlyText + '/' + t('unit.hour'))
 						),
 						h('div', { className: 'pd-amount', 'aria-live': 'off' },
@@ -1991,6 +2004,7 @@ window.__ModuleLoader__.load({
 				'stat.projected': '今日预计',
 				'stat.rate': '时薪',
 				'stat.progress': '今日工作进度',
+				'stat.onBreak': '午休中',
 				'unit.hour': '时',
 				'unit.days': '天',
 				'unit.yuan': '元',
@@ -2060,6 +2074,7 @@ window.__ModuleLoader__.load({
 				'stat.projected': "Today's estimate",
 				'stat.rate': 'Rate',
 				'stat.progress': "Today's work progress",
+				'stat.onBreak': 'On break',
 				'unit.hour': 'h',
 				'unit.days': 'days',
 				'unit.yuan': 'CNY',

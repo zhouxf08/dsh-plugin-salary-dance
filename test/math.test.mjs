@@ -557,6 +557,33 @@ check('整点时薪也补足 4 位', hasText(tidyRate, '¥45.4545'), 'true');
  * 4b. The ticker: does the rendered figure actually follow the clock?
  * ------------------------------------------------------------------ */
 
+console.log('\n--- 午休冻结与提示 ---');
+
+// The amount stands still through the unpaid break — that is correct, but a frozen
+// figure with no explanation reads as a bug, so both views mark the state.
+const lunchCard = render('2026-10-14T12:30:00', { monthlySalary: 8000 });
+check('午休中：完整卡片标记出来', hasText(lunchCard, '午休中'), 'true');
+const lunchMini = render('2026-10-14T12:30:00', { monthlySalary: 8000, miniFloat: true });
+check('午休中：精简模式也标记', hasText(lunchMini, '午休中'), 'true');
+const workCard = render('2026-10-14T14:00:00', { monthlySalary: 8000 });
+check('工作时段：不显示午休标记', hasText(workCard, '午休中'), 'false');
+check('午休前：不显示午休标记', hasText(render('2026-10-14T11:30:00', { monthlySalary: 8000 }), '午休中'), 'false');
+check('午休后：不显示午休标记', hasText(render('2026-10-14T13:30:00', { monthlySalary: 8000 }), '午休中'), 'false');
+
+// Closing the break, or turning it off, must clear the marker rather than leave it
+// pinned by a stale flag.
+check('关掉午休：不显示标记', hasText(render('2026-10-14T12:30:00', { monthlySalary: 8000, lunchEnabled: false }), '午休中'), 'false');
+// A break outside the shift window is not a break.
+check('午休在班次外：不显示标记', hasText(render('2026-10-14T12:30:00', { monthlySalary: 8000, lunchStart: '20:00', lunchEnd: '21:00' }), '午休中'), 'false');
+
+// And the freeze itself is the designed behaviour, so pin it too.
+const lunchNow = api.earnedAt(baseConfig({ monthlySalary: 8000 }), new Date('2026-10-14T12:30:00'));
+const lunchLater = api.earnedAt(baseConfig({ monthlySalary: 8000 }), new Date('2026-10-14T12:45:00'));
+check('午休期间金额不累积', lunchLater, lunchNow);
+const afternoon = api.earnedAt(baseConfig({ monthlySalary: 8000 }), new Date('2026-10-14T14:45:00'));
+const afternoonLater = api.earnedAt(baseConfig({ monthlySalary: 8000 }), new Date('2026-10-14T14:45:30'));
+check('工作时段金额在累积', afternoonLater > afternoon, 'true');
+
 console.log('\n--- 跳动 ---');
 const TICK_AT = '2026-10-14T10:00:00';
 const TICK_PATCH = { monthlySalary: 8000 };
