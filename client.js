@@ -574,12 +574,17 @@ window.__ModuleLoader__.load({
 .pd-head-actions{ margin-left:auto; display:flex; align-items:center; gap:2px; flex:0 0 auto; }
 .pd-iconbtn:focus-visible{ outline:2px solid var(--dsw-alias-state-business-primary,#4a90e2); outline-offset:1px; }
 .pd-body{ padding:0 14px 11px; }
+/* Gold, not the neutral grey it started as: a paused figure deserves to look
+   deliberate. The alias brand token is near-black in this theme, so the amber
+   ramp is what actually reads as gold. Note the CSS lives in a template literal:
+   never put backticks in these comments or the string ends early. */
 .pd-break{
   flex:0 0 auto;
   padding:1px 6px; border-radius:999px;
   font-size:9.5px; font-weight:600;
-  background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.06));
-  color:var(--dsw-alias-label-secondary,#4a505a);
+  background:var(--dsw-static-amber-100,#fef5e7);
+  color:var(--dsw-static-amber-600,#dd8629);
+  box-shadow:inset 0 0 0 1px var(--dsw-static-amber-400,#f7ad31);
 }
 .pd-caption{
   display:flex;
@@ -1632,6 +1637,11 @@ window.__ModuleLoader__.load({
 				);
 			}
 
+			/** Why the figure is standing still, and when it resumes. */
+			function breakHint() {
+				return t('stat.onBreakHint').replace('{end}', config.lunchEnd);
+			}
+
 			function stat(label, value) {
 				return h('div', { className: 'pd-stat' }, h('div', { className: 'k' }, label), h('div', { className: 'v' }, value));
 			}
@@ -1874,7 +1884,9 @@ window.__ModuleLoader__.load({
 								h('span', { className: 'v' }, groupMoney(formatMoney(Math.floor(shownEarned * 10000) / 10000, 4)))
 							),
 							// Without this the compact view just looks stuck during the break.
-							shift.onBreak ? h('span', { className: 'pd-break' }, t('stat.onBreak')) : null,
+							shift.onBreak
+								? h('span', { className: 'pd-break', title: breakHint() }, t('stat.onBreak'))
+								: null,
 							h('div', { className: 'pd-mini-metrics' },
 								h('div', null,
 									h('span', { className: 'k' }, t('stat.rate')),
@@ -1937,7 +1949,9 @@ window.__ModuleLoader__.load({
 				: h('div', { className: 'pd-body' },
 						h('div', { className: 'pd-caption' },
 							h('span', null, t('caption.today')),
-							shift.onBreak ? h('span', { className: 'pd-break' }, t('stat.onBreak')) : null,
+							shift.onBreak
+								? h('span', { className: 'pd-break', title: breakHint() }, t('stat.onBreak'))
+								: null,
 							h('span', { className: 'pd-caprate' }, '¥' + hourlyText + '/' + t('unit.hour'))
 						),
 						h('div', { className: 'pd-amount', 'aria-live': 'off' },
@@ -2005,6 +2019,7 @@ window.__ModuleLoader__.load({
 				'stat.rate': '时薪',
 				'stat.progress': '今日工作进度',
 				'stat.onBreak': '午休中',
+				'stat.onBreakHint': '午休时段不计入工作时长，{end} 后继续累积',
 				'unit.hour': '时',
 				'unit.days': '天',
 				'unit.yuan': '元',
@@ -2075,6 +2090,7 @@ window.__ModuleLoader__.load({
 				'stat.rate': 'Rate',
 				'stat.progress': "Today's work progress",
 				'stat.onBreak': 'On break',
+				'stat.onBreakHint': 'The break does not count as worked time; accrual resumes at {end}',
 				'unit.hour': 'h',
 				'unit.days': 'days',
 				'unit.yuan': 'CNY',

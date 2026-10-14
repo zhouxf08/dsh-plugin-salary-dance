@@ -576,6 +576,31 @@ check('关掉午休：不显示标记', hasText(render('2026-10-14T12:30:00', { 
 // A break outside the shift window is not a break.
 check('午休在班次外：不显示标记', hasText(render('2026-10-14T12:30:00', { monthlySalary: 8000, lunchStart: '20:00', lunchEnd: '21:00' }), '午休中'), 'false');
 
+// Gold, and explained on hover: a paused figure should look deliberate rather than
+// broken. The alias brand token is near-black in this theme, so the amber ramp is
+// what actually reads as gold and that is what the badge must use.
+const breakCss = api.CSS.slice(api.CSS.indexOf('.pd-break{'), api.CSS.indexOf('.pd-caption{'));
+check('午休标记用金色背景', breakCss.includes('dsw-static-amber-100'), 'true');
+check('午休标记用金色文字', breakCss.includes('dsw-static-amber-600'), 'true');
+check('午休标记不沿用中性灰', breakCss.includes('interactive-bg-hover'), 'false');
+check('午休标记有悬停说明', lunchCard !== null && (function () {
+  let hint = null;
+  (function walk(node) {
+    if (hint !== null || node === null || node === undefined) return;
+    if (Array.isArray(node)) { node.forEach(walk); return; }
+    if (typeof node !== 'object' || node.children === undefined) return;
+    if (node.props && typeof node.props.className === 'string'
+        && node.props.className.split(' ').includes('pd-break')) { hint = node.props.title || ''; return; }
+    node.children.forEach(walk);
+  })(lunchCard);
+  return hint !== null && hint.includes('13:00');
+})(), 'true');
+
+// The stylesheet lives inside a template literal, so a backtick in a CSS comment
+// ends the string and breaks the whole file. That happened once; this catches it
+// without waiting for a parse error.
+check('CSS 内无多余反引号', api.CSS.includes('`'), 'false');
+
 // And the freeze itself is the designed behaviour, so pin it too.
 const lunchNow = api.earnedAt(baseConfig({ monthlySalary: 8000 }), new Date('2026-10-14T12:30:00'));
 const lunchLater = api.earnedAt(baseConfig({ monthlySalary: 8000 }), new Date('2026-10-14T12:45:00'));
