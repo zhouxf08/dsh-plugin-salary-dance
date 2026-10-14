@@ -79,10 +79,10 @@
   <g filter="url(#shadow)">
     <rect x="28" y="300" width="300" height="130" rx="14" fill="#ffffff" stroke="#e3ebf7"/>
   </g>
-  <text class="t cap" x="46" y="322">精简模式：赚了多少 · 按什么速度 · 今天落在哪</text>
+  <text class="t cap" x="46" y="322">精简模式：赚了多少 · 按什么速度 · 今天落在哪（金额与完整卡片同为 4 位小数）</text>
 
   <text class="t" x="46" y="360" font-size="13" font-weight="600" opacity="0.8">¥</text>
-  <text class="t" x="56" y="360" font-size="19" font-weight="700" fill="#16181d" letter-spacing="-0.5">55.56</text>
+  <text class="t" x="56" y="360" font-size="17" font-weight="700" fill="#16181d" letter-spacing="-0.6">55.5556</text>
 
   <text class="t" x="300" y="336" text-anchor="end" font-size="9.5" fill="#8a9099">时薪</text>
   <text class="t" x="300" y="336" text-anchor="end" font-size="11" font-weight="600" fill="#4a505a" dx="-24">¥55.5556</text>

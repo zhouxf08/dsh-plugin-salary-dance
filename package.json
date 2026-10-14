@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-salary-dance",
-  "version": "1.4.4",
+  "version": "1.4.5",
   "description": "薪跳 SalaryDance —— 常驻 DSH Web 界面右上角的实时薪资跳动悬浮卡片，带两步设置面板与按法定节假日计算的当月工作日历时薪。",
   "type": "module",
   "main": "index.js",

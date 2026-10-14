@@ -895,7 +895,7 @@ const miniProgress = Math.round((api.solveShift(Object.assign({}, api.DEFAULT_CO
 const mini = miniTree(MINI_AT, MINI_PATCH);
 const miniText = textUnder(mini, 'pd-mini');
 check('精简模式渲染出来', miniText !== null, 'true');
-check('精简模式显示今日入账（两位）', miniText.includes('¥' + (Math.floor(miniTruth * 100) / 100).toFixed(2)), 'true');
+check('精简模式显示今日入账（四位）', miniText.includes('¥' + (Math.floor(miniTruth * 10000) / 10000).toFixed(4)), 'true');
 check('精简模式显示时薪', miniText.includes('¥55.5556'), 'true');
 check('精简模式显示今日预计', miniText.includes('¥' + miniDaily.toFixed(2)), 'true');
 check('精简模式有进度条', nodeByClass(mini, 'pd-mini-bar') !== null, 'true');
@@ -904,11 +904,11 @@ check('精简模式不渲染完整卡片', nodeByClass(mini, 'pd-amount'), 'null
 check('精简模式不渲染统计三栏', nodeByClass(mini, 'pd-stats'), 'null');
 
 // The three figures must be distinguishable. Matching on "55.5" would not prove
-// anything here — the amount happens to be 55.56 — so the amount region is read
-// as a whole number: it must be the two-decimal figure and nothing else.
+// anything here, so the amount region is read as a whole: it must be exactly the
+// four-decimal figure and nothing else.
 const miniMainText = textUnder(mini, 'pd-mini-main');
-check('金额区只有这一个数字', miniMainText, '¥' + (Math.floor(miniTruth * 100) / 100).toFixed(2));
-check('金额区不是四位小数', /\.\d{4}/.test(miniMainText), 'false');
+check('金额区只有这一个数字', miniMainText, '¥' + (Math.floor(miniTruth * 10000) / 10000).toFixed(4));
+check('金额区是四位小数', /\.\d{4}/.test(miniMainText), 'true');
 check('费率在右侧指标区', textUnder(mini, 'pd-mini-metrics').includes('¥55.5556'), 'true');
 check('预计在右侧指标区', textUnder(mini, 'pd-mini-metrics').includes('¥' + miniDaily.toFixed(2)), 'true');
 
@@ -924,11 +924,12 @@ const miniFrames = driveTicker('2026-10-14T10:00:00', MINI_SECONDS, { monthlySal
 check('精简模式采集到帧', miniFrames.length > 100, 'true');
 const miniTexts = miniFrames.map((sample) => sample.text).filter((text) => text !== null);
 check('精简模式金额有多个取值', new Set(miniTexts).size > 1, 'true');
-check('精简模式始终是两位小数', miniTexts.every((text) => /^¥[0-9,]+\.[0-9]{2}$/.test(text)), 'true');
+check('精简模式始终是四位小数', miniTexts.every((text) => /^¥[0-9,]+\.[0-9]{4}$/.test(text)), 'true');
 
 // Self-consistent rather than hand-computed: the growth over the run must match the
 // rate the same fixture implies. This is what catches a figure that moves too fast
-// or too slow, not just one that is frozen.
+// or too slow, not just one that is frozen. Four decimals at this rate turn over
+// roughly every 65 ms, so a six-second run covers many steps.
 // Keep the decimal point: stripping everything but digits and commas turned
 // "¥55.64" into 5564, i.e. a hundredfold error in the very quantity under test.
 const miniNums = miniTexts.map((text) => Number(text.replace(/[^0-9.,]/g, '').replace(/,/g, '')));
