@@ -745,11 +745,11 @@ window.__ModuleLoader__.load({
    stopped once the shift is over. */
 .pd-avatar{ display:block; flex:0 0 auto; color:var(--dsw-alias-label-secondary,#4a505a); }
 .pd-avatar .ball,
-.pd-avatar .burger{ transform-box:fill-box; transform-origin:center; animation:pd-bob .45s ease-in-out infinite; }
-.pd-avatar .arm{ transform-box:fill-box; transform-origin:0% 50%; animation:pd-swing .45s ease-in-out infinite; }
+.pd-avatar .burger{ transform-box:fill-box; transform-origin:center; animation:pd-bob .32s ease-in-out infinite; }
+.pd-avatar .arm{ transform-box:fill-box; transform-origin:0% 50%; animation:pd-swing .32s ease-in-out infinite; }
 .pd-avatar.slow .ball,
 .pd-avatar.slow .burger,
-.pd-avatar.slow .arm{ animation-duration:1.8s; }
+.pd-avatar.slow .arm{ animation-duration:1.3s; }
 .pd-avatar.off .ball,
 .pd-avatar.off .burger,
 .pd-avatar.off .arm{ animation-play-state:paused; opacity:.45; }

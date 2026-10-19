@@ -659,8 +659,8 @@ check('头像只用 currentColor', JSON.stringify((function () {
   })(svg);
   return out;
 })()), '[]');
-check('头像有循环动画', /@keyframes pd-bob\{/.test(api.CSS) && /animation:pd-bob \.45s/.test(api.CSS), 'true');
-check('动画比原来更快', /animation:pd-bob \.45s/.test(api.CSS), 'true');
+check('头像有循环动画', /@keyframes pd-bob\{/.test(api.CSS) && /animation:pd-bob \.32s/.test(api.CSS), 'true');
+check('动画比原来更快', /animation:pd-bob \.32s/.test(api.CSS), 'true');
 check('动作幅度更大', /translateY\(5px\)/.test(api.CSS) && /rotate\(-14deg\)/.test(api.CSS), 'true');
 // Character registry: adding one entry is all it takes to add a character.
 check('角色注册表有两个角色', api.AVATARS.length, 2);
