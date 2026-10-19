@@ -601,6 +601,18 @@ check('状态条显示今日预计', flatText(stripView).includes('¥444.44'), '
 check('状态条显示已工作', hasText(stripView, '已工作 4 h 0 m'), 'true');
 check('状态条显示距离下班', hasText(stripView, '距离下班 4 h 0 m'), 'true');
 check('状态条有进度条', nodeByClass(stripView, 'pd-mini-bar') !== null, 'true');
+check('头像排在计数之后', (function () {
+  const btn = nodeByClass(stripView, 'pd-strip-btn');
+  if (btn === null) return '(none)';
+  const classes = btn.children.map((c) => {
+    if (c === null || typeof c !== 'object') return '';
+    return (c.props && c.props.className) || (c.type && c.type.name) || '';
+  });
+  return classes.indexOf('pd-strip-main') < classes.findIndex((c) => c === 'Avatar') ? 'after' : 'before';
+})(), 'after');
+// The break badge must not take part in the row's layout, or it squeezes the rate
+// and projection columns out of the way.
+check('午休标记是绝对定位', /(?:^|\n)\.pd-break\{[^}]*position:absolute/.test(api.CSS), 'true');
 
 // A collapsed sidebar is a ~49px rail; only the figure fits, so the second line is
 // dropped rather than wrapped into a mess.
@@ -674,7 +686,7 @@ check('午休在班次外：不显示标记', hasText(render('2026-10-14T12:30:0
 // Gold, and explained on hover: a paused figure should look deliberate rather than
 // broken. The alias brand token is near-black in this theme, so the amber ramp is
 // what actually reads as gold and that is what the badge must use.
-const breakCss = api.CSS.slice(api.CSS.indexOf('.pd-break{'), api.CSS.indexOf('.pd-caption{'));
+const breakCss = (api.CSS.match(/(?:^|\n)\.pd-break\{[^}]*\}/) || [''])[0];
 check('午休标记用金色背景', breakCss.includes('dsw-static-amber-100'), 'true');
 check('午休标记用金色文字', breakCss.includes('dsw-static-amber-600'), 'true');
 check('午休标记不沿用中性灰', breakCss.includes('interactive-bg-hover'), 'false');

@@ -524,6 +524,8 @@ window.__ModuleLoader__.load({
   padding:6px 10px 8px;
   display:flex; flex-direction:column; gap:5px;
 }
+.pd-strip{ position:relative; display:flex; flex-direction:column; gap:4px; }
+.pd-strip .pd-break{ right:0; bottom:12px; z-index:1; }
 .pd-strip-btn{
   display:flex; align-items:center; gap:8px;
   width:100%; min-width:0;
@@ -613,7 +615,9 @@ window.__ModuleLoader__.load({
    ramp is what actually reads as gold. Note the CSS lives in a template literal:
    never put backticks in these comments or the string ends early. */
 .pd-break{
-  flex:0 0 auto;
+  /* Absolutely placed: as an in-flow flex item it stole width from the rate and
+     projection columns, which are the whole point of that row. */
+  position:absolute;
   padding:1px 6px; border-radius:999px;
   font-size:9.5px; font-weight:600;
   background:var(--dsw-static-amber-100,#fef5e7);
@@ -1964,11 +1968,11 @@ window.__ModuleLoader__.load({
 						title: t('action.configure'),
 						onClick: openPanel
 					},
-					h(Avatar, { mode: avatarMode }),
 					h('span', { className: 'pd-strip-main' },
 						h('span', { className: 'sym' }, '¥'),
 						h('span', { className: 'v' }, groupMoney(formatMoney(Math.floor(shownEarned * 10000) / 10000, 4)))
 					),
+					h(Avatar, { mode: avatarMode }),
 					shift.onBreak
 						? h('span', { className: 'pd-break', title: breakHint() }, t('stat.onBreak'))
 						: null,
