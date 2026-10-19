@@ -23,6 +23,32 @@ window.__ModuleLoader__.load({
 		// A persistence contract: keep it in step with PACKAGE_NAME, since changing it
 		// discards every existing user's saved configuration.
 		const STORAGE_KEY = PACKAGE_NAME + '/config.v1';
+		// Card position is remembered separately: it changes while dragging, so it must
+		// not rewrite the whole config on every pointer move.
+		const POS_KEY = PACKAGE_NAME + '/pos.v1';
+		const DEFAULT_POS = { left: 12, top: 56 };
+
+		/** Keep the card inside the window, whatever a stored position claims. */
+		function clampPos(pos) {
+			const w = window.innerWidth || 1280;
+			const h = window.innerHeight || 800;
+			return {
+				left: Math.min(Math.max(Number(pos && pos.left) || 0, 4), Math.max(4, w - 160)),
+				top: Math.min(Math.max(Number(pos && pos.top) || 0, 28), Math.max(28, h - 120))
+			};
+		}
+
+		function loadPos() {
+			try {
+				const raw = window.localStorage.getItem(POS_KEY);
+				if (raw) return clampPos(JSON.parse(raw));
+			} catch (error) { /* fall through to the default */ }
+			return DEFAULT_POS;
+		}
+
+		function savePos(pos) {
+			try { window.localStorage.setItem(POS_KEY, JSON.stringify(pos)); } catch (error) { /* not fatal */ }
+		}
 
 		/* ------------------------------------------------------------------ *
 		 * Statutory holiday calendar (mainland China)
@@ -699,6 +725,24 @@ window.__ModuleLoader__.load({
   color:var(--dsw-alias-label-secondary,#4a505a);
 }
 .pd-btn.ghost:hover{ background:var(--dsw-alias-interactive-bg-active,rgba(0,0,0,.09)); }
+/* The compact card sits over the conversation sidebar by default, so it is kept
+   narrower than the full card to leave more of that list readable. */
+.pd-root[data-mini="true"] .pd-card{ width:236px; }
+/* One small figure, drawn in currentColor so it follows the host's palette.
+   Its motion is the state indicator: normal while paid, slow through lunch,
+   stopped once the shift is over. */
+.pd-avatar{ display:block; flex:0 0 auto; color:var(--dsw-alias-label-secondary,#4a505a); }
+.pd-avatar .ball{ transform-box:fill-box; transform-origin:center; animation:pd-dribble .9s ease-in-out infinite; }
+.pd-avatar .arm{ transform-box:fill-box; transform-origin:0% 50%; animation:pd-swing .9s ease-in-out infinite; }
+.pd-avatar.slow .ball,
+.pd-avatar.slow .arm{ animation-duration:3.2s; }
+.pd-avatar.off .ball,
+.pd-avatar.off .arm{ animation-play-state:paused; opacity:.45; }
+@keyframes pd-dribble{ 0%,100%{ transform:translateY(0) } 50%{ transform:translateY(3.4px) } }
+@keyframes pd-swing{ 0%,100%{ transform:rotate(0deg) } 50%{ transform:rotate(-9deg) } }
+@media (prefers-reduced-motion: reduce){
+  .pd-avatar .ball, .pd-avatar .arm{ animation:none; }
+}
 .pd-mini{
   display:flex;align-items:center;justify-content:space-between;gap:10px;
   padding:2px 12px 10px;
@@ -706,10 +750,10 @@ window.__ModuleLoader__.load({
   user-select:none;
 }
 .pd-mini-main{ display:flex;align-items:baseline;gap:1px; flex:0 0 auto; }
-.pd-mini .v{ font-size:19px;font-weight:700;font-variant-numeric:tabular-nums; letter-spacing:-.01em; }
+.pd-mini .v{ font-size:17px;font-weight:700;font-variant-numeric:tabular-nums; letter-spacing:-.01em; }
 .pd-mini .sym{ font-size:13px;font-weight:600;opacity:.8; }
 /* Two stacked figures: the pace, and where the day lands. */
-.pd-mini-metrics{ display:flex; flex-direction:column; gap:3px; align-items:flex-end; }
+.pd-mini-metrics{ display:flex; flex-direction:column; gap:3px; align-items:flex-end; min-width:0; }
 .pd-mini-metrics > div{ display:flex; align-items:baseline; gap:5px; }
 .pd-mini-metrics .k{ font-size:9.5px; color:var(--dsw-alias-label-tertiary,#8a9099); }
 .pd-mini-metrics b{
@@ -1020,6 +1064,41 @@ window.__ModuleLoader__.load({
 			calendar: 'M2.5 4 H13.5 V13 H2.5 Z M2.5 6.8 H13.5 M5.5 2.5 V5 M10.5 2.5 V5',
 									gear: 'M13.0107 7.79377C12.9505 7.89401 12.9205 7.94413 12.9205 7.99951C12.9205 8.0549 12.9505 8.10502 13.0106 8.20528L13.9849 9.83006C14.045 9.93029 14.0751 9.9804 14.0751 10.0358C14.0751 10.0911 14.045 10.1413 13.9849 10.2415L13.0037 11.8777C12.9468 11.9726 12.9184 12.0201 12.8725 12.0461C12.8267 12.072 12.7713 12.072 12.6607 12.072H10.6704C10.5598 12.072 10.5045 12.072 10.4586 12.098C10.4128 12.1239 10.3843 12.1714 10.3274 12.2662L9.33825 13.9142C9.28133 14.009 9.25287 14.0564 9.20703 14.0823C9.16118 14.1083 9.10588 14.1083 8.99529 14.1083H7.00486C6.89426 14.1083 6.83896 14.1083 6.79312 14.0823C6.74727 14.0564 6.71881 14.009 6.6619 13.9142L5.67273 12.2662C5.61581 12.1714 5.58735 12.1239 5.54151 12.098C5.49566 12.072 5.44036 12.072 5.32977 12.072H3.33945C3.2288 12.072 3.17347 12.072 3.12761 12.0461C3.08176 12.0201 3.0533 11.9726 2.9964 11.8777L2.0152 10.2415C1.9551 10.1413 1.92505 10.0911 1.92505 10.0358C1.92505 9.9804 1.9551 9.93029 2.0152 9.83006L2.98951 8.20528C3.04963 8.10502 3.07969 8.0549 3.07969 7.99951C3.07968 7.94413 3.04961 7.89401 2.98946 7.79377L2.01529 6.17011C1.95514 6.06987 1.92507 6.01975 1.92507 5.96437C1.92506 5.90899 1.95512 5.85886 2.01524 5.7586L2.9964 4.1224C3.0533 4.0275 3.08176 3.98005 3.12761 3.95408C3.17347 3.92811 3.2288 3.92811 3.33945 3.92811H5.32977C5.44036 3.92811 5.49566 3.92811 5.54151 3.90216C5.58735 3.87621 5.61581 3.82879 5.67273 3.73397L6.6619 2.08599C6.71881 1.99116 6.74727 1.94375 6.79312 1.9178C6.83896 1.89185 6.89426 1.89185 7.00486 1.89185H8.99529C9.10588 1.89185 9.16118 1.89185 9.20703 1.9178C9.25287 1.94375 9.28133 1.99116 9.33825 2.08599L10.3274 3.73397C10.3843 3.82879 10.4128 3.87621 10.4586 3.90216C10.5045 3.92811 10.5598 3.92811 10.6704 3.92811H12.6607C12.7713 3.92811 12.8267 3.92811 12.8725 3.95408C12.9184 3.98005 12.9468 4.0275 13.0037 4.1224L13.9849 5.7586C14.045 5.85886 14.0751 5.90899 14.0751 5.96437C14.0751 6.01975 14.045 6.06987 13.9849 6.17011L13.0107 7.79377Z M8 9.75012C8.9665 9.75012 9.75 8.96662 9.75 8.00012C9.75 7.03362 8.9665 6.25012 8 6.25012C7.0335 6.25012 6.25 7.03362 6.25 8.00012C6.25 8.96662 7.0335 9.75012 8 9.75012Z'
 		};
+
+		/**
+		 * A small monochrome figure dribbling a ball. It is an original drawing, not a
+		 * likeness of anyone: the point is the *motion*, and that motion is how the card
+		 * shows whether you are being paid right now.
+		 */
+		function Avatar(props) {
+			const mode = props.mode || 'work';
+			const cls = 'pd-avatar' + (mode === 'off' ? ' off' : mode === 'break' ? ' slow' : '');
+			return h(
+				'svg',
+				{
+					className: cls,
+					viewBox: '0 0 32 32',
+					width: 27,
+					height: 27,
+					'aria-hidden': 'true',
+					fill: 'none',
+					stroke: 'currentColor',
+					strokeWidth: 1.4,
+					strokeLinecap: 'round',
+					strokeLinejoin: 'round'
+				},
+				// head
+				h('circle', { cx: 12.5, cy: 8.2, r: 3 }),
+				// torso
+				h('path', { d: 'M12.5 11.2 V19' }),
+				// the arm that works the ball
+				h('path', { className: 'arm', d: 'M12.5 13.6 L18.8 16.2' }),
+				// legs
+				h('path', { d: 'M12.5 19 L10 24.8 M12.5 19 L15.4 24.2' }),
+				// the ball
+				h('circle', { className: 'ball', cx: 21.4, cy: 21.2, r: 2.6, fill: 'currentColor', stroke: 'none', opacity: 0.85 })
+			);
+		}
 
 		function Icon(props) {
 			const size = props.size || 16;
@@ -1407,7 +1486,7 @@ window.__ModuleLoader__.load({
 			const [step, setStep] = React.useState(1);
 			const [now, setNow] = React.useState(function () { return new Date(); });
 			const [tick, setTick] = React.useState(0);
-			const [pos, setPos] = React.useState({ right: 20, top: 56 });
+			const [pos, setPos] = React.useState(loadPos);
 			const rootRef = React.useRef(null);
 			const dragRef = React.useRef(null);
 			const rafRef = React.useRef(null);
@@ -1476,6 +1555,9 @@ window.__ModuleLoader__.load({
 			// never disagree about what has been earned. Before the first animation frame
 			// it falls back to the heartbeat's reading.
 			const shownEarned = frameRef.current === null ? earned : frameRef.current;
+			// The avatar is the at-a-glance version of the same fact the number tells:
+			// moving while you are being paid, slowing through lunch, still once you stop.
+			const avatarMode = !allowed || shift.after ? 'off' : shift.onBreak ? 'break' : 'work';
 			// A rest day serves nothing: the shift window is still solved (so the clock
 			// times stay meaningful) but nothing is counted against it. Without this the
 			// progress rail climbs through a Saturday as if the shift were running.
@@ -1540,7 +1622,7 @@ window.__ModuleLoader__.load({
 					pointerId: event.pointerId,
 					startX: event.clientX,
 					startY: event.clientY,
-					originRight: window.innerWidth - rect.right,
+					originLeft: rect.left,
 					originTop: rect.top,
 					width: rect.width,
 					height: rect.height
@@ -1565,6 +1647,9 @@ window.__ModuleLoader__.load({
 				const drag = dragRef.current;
 				if (drag === null || drag.pointerId !== event.pointerId) return;
 				dragRef.current = null;
+				// Remember where it was dropped so the next page load keeps it there —
+				// that is what makes the left-hand default safe to live with.
+				setPos(function (current) { savePos(current); return current; });
 				if (typeof event.currentTarget.releasePointerCapture === 'function') {
 					try { event.currentTarget.releasePointerCapture(event.pointerId); } catch (error) { /* already released */ }
 				}
@@ -1576,7 +1661,8 @@ window.__ModuleLoader__.load({
 				className: 'pd-root',
 				ref: rootRef,
 				'data-raised': 'true',
-				style: { right: pos.right + 'px', top: pos.top + 'px' }
+				'data-mini': config.miniFloat && !open ? 'true' : undefined,
+				style: { left: pos.left + 'px', top: pos.top + 'px' }
 			};
 
 			// One place for the card-level controls. The status wording ("正在上班") and a
@@ -1879,6 +1965,7 @@ window.__ModuleLoader__.load({
 								}
 							}
 						},
+							h(Avatar, { mode: avatarMode }),
 							h('span', { className: 'pd-mini-main' },
 								h('span', { className: 'sym' }, '¥'),
 								h('span', { className: 'v' }, groupMoney(formatMoney(Math.floor(shownEarned * 10000) / 10000, 4)))
@@ -2187,6 +2274,10 @@ window.__ModuleLoader__.load({
 			CSS: CSS,
 			ROW_ID: ROW_ID,
 			PACKAGE_NAME: PACKAGE_NAME,
+			POS_KEY: POS_KEY,
+			DEFAULT_POS: DEFAULT_POS,
+			Avatar: Avatar,
+			clampPos: clampPos,
 			STORAGE_KEY: STORAGE_KEY,
 			ICON_PATHS: PATHS,
 			DICTIONARIES: DICTIONARIES,

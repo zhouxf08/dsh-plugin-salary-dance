@@ -557,6 +557,76 @@ check('整点时薪也补足 4 位', hasText(tidyRate, '¥45.4545'), 'true');
  * 4b. The ticker: does the rendered figure actually follow the clock?
  * ------------------------------------------------------------------ */
 
+console.log('\n--- 位置与头像 ---');
+
+// The card anchors to the left edge now, so the compact view can sit over the
+// conversation sidebar; drag-to-move plus a remembered position is what keeps that
+// from being a permanent obstruction.
+const placed = render('2026-10-14T14:00:00', { monthlySalary: 8000, miniFloat: true });
+const placedRoot = nodeByClass(placed, 'pd-root');
+check('默认按 left 锚定', Object.prototype.hasOwnProperty.call(placedRoot.props.style, 'left'), 'true');
+check('不再按 right 锚定', Object.prototype.hasOwnProperty.call(placedRoot.props.style, 'right'), 'false');
+check('默认位置 left', placedRoot.props.style.left, '12px');
+check('默认位置 top', placedRoot.props.style.top, '56px');
+check('精简时打上 data-mini', placedRoot.props['data-mini'], 'true');
+check('完整视图不打 data-mini', nodeByClass(render('2026-10-14T14:00:00', { monthlySalary: 8000 }), 'pd-root').props['data-mini'], 'undefined');
+check('精简卡片比完整卡片窄', /\.pd-root\[data-mini="true"\] \.pd-card\{ width:236px; \}/.test(api.CSS), 'true');
+
+// clamps keep a stored position usable after the window shrank
+check('位置夹在窗口内（右下越界）', JSON.stringify(api.clampPos({ left: 9999, top: 9999 })), JSON.stringify({ left: 1440 - 160, top: 900 - 120 }));
+check('位置夹在窗口内（负值）', JSON.stringify(api.clampPos({ left: -50, top: -50 })), JSON.stringify({ left: 4, top: 28 }));
+check('位置缺字段时不炸', JSON.stringify(api.clampPos(null)), JSON.stringify({ left: 4, top: 28 }));
+check('位置单独存一个键', api.POS_KEY, 'dsh-plugin-salary-dance/pos.v1');
+
+// The avatar states the same thing the number does: paid → moving, break → slow,
+// stopped → still. It is a function component, so the harness leaves it un-invoked;
+// the assertions read its props before rendering and its output when called directly.
+const avatarModeAt = (iso, patch) => {
+  const tree = render(iso, Object.assign({ monthlySalary: 8000, miniFloat: true }, patch || {}));
+  let found = null;
+  (function walk(node) {
+    if (found !== null || node === null || node === undefined) return;
+    if (Array.isArray(node)) { node.forEach(walk); return; }
+    if (typeof node !== 'object' || node.children === undefined) return;
+    if (node.type === api.Avatar) { found = node; return; }
+    node.children.forEach(walk);
+  })(tree);
+  return found === null ? '(none)' : found.props.mode;
+};
+check('工作中：头像 mode', avatarModeAt('2026-10-14T14:00:00'), 'work');
+check('午休中：头像 mode', avatarModeAt('2026-10-14T12:30:00'), 'break');
+check('下班后：头像 mode', avatarModeAt('2026-10-14T19:00:00'), 'off');
+check('休息日：头像 mode', avatarModeAt('2026-10-17T14:00:00'), 'off');
+check('关掉午休：头像 mode', avatarModeAt('2026-10-14T12:30:00', { lunchEnabled: false }), 'work');
+
+check('工作中：头像不加修饰类', api.Avatar({ mode: 'work' }).props.className, 'pd-avatar');
+check('午休中：头像加 slow', api.Avatar({ mode: 'break' }).props.className, 'pd-avatar slow');
+check('下班后：头像加 off', api.Avatar({ mode: 'off' }).props.className, 'pd-avatar off');
+check('头像是一张 svg', api.Avatar({ mode: 'work' }).type, 'svg');
+// `check` compares via String(), so the actual value is serialised first.
+check('头像黑白（只用 currentColor）', JSON.stringify((function () {
+  const svg = api.Avatar({ mode: 'work' });
+  const walk = (n, out) => {
+    if (!n || typeof n !== 'object') return out;
+    if (Array.isArray(n)) { n.forEach((x) => walk(x, out)); return out; }
+    if (n.props) {
+      for (const key of ['stroke', 'fill']) {
+        const v = n.props[key];
+        if (typeof v === 'string' && v !== 'none' && v !== 'currentColor') out.push(v);
+      }
+    }
+    if (n.children) n.children.forEach((x) => walk(x, out));
+    return out;
+  };
+  return walk(svg, []).filter((v) => v !== 'currentColor');
+})()), '[]');
+
+// Motion: normal cycle, slow cycle for the break, paused once stopped.
+check('头像有循环动画', /@keyframes pd-dribble\{/.test(api.CSS) && /animation:pd-dribble \.9s/.test(api.CSS), 'true');
+check('午休时动画变慢', /\.pd-avatar\.slow \.ball,[\s\S]{0,80}animation-duration:3\.2s/.test(api.CSS), 'true');
+check('下班后动画暂停', /\.pd-avatar\.off \.ball,[\s\S]{0,80}animation-play-state:paused/.test(api.CSS), 'true');
+check('尊重 prefers-reduced-motion', /prefers-reduced-motion: reduce\)[\s\S]{0,80}\.pd-avatar \.ball/.test(api.CSS), 'true');
+
 console.log('\n--- 午休冻结与提示 ---');
 
 // The amount stands still through the unpaid break — that is correct, but a frozen

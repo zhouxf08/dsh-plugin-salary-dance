@@ -36,6 +36,19 @@ DSH 把界面插件组织成 **bundle**：只要 npm 包在 `package.json` 里�
 
 样式只使用 DSH 主题变量（`--dsw-alias-*` / `--dsw-radius-*` / `--dsw-shadow-*` / `--dsw-static-amber-*`），不 import 任何 DSH Client 包，只用两样宿主能力：插槽服务与 locale 服务（声明在 `inject = ['slots', 'locale']`）。两者都缺失时插件不挂载，而不是抛错。
 
+## 位置与头像
+
+- 卡片用 `left` / `top` 锚定，默认左上角（`{ left: 12, top: 56 }`）。位置存在
+  `dsh-plugin-salary-dance/pos.v1`，**拖动结束才写一次**，不会每帧写 localStorage。
+  读回时用 `clampPos` 夹进当前窗口，窗口变小也不会跑到屏幕外。
+- 精简视图比完整视图窄（236 vs 296px）—— 它默认压在对话侧栏（280px）上，窄一点
+  能少挡些内容。真正解决遮挡的是"拖动 + 记住位置"。
+- 头像 `Avatar({ mode })` 是一段内联 SVG，只用 `currentColor`，所以跟随宿主主题的
+  黑白。动作靠两条 CSS 动画（球弹跳 + 手臂摆动）：
+  `mode = work` 正常 .9s，`break` 放慢到 3.2s，`off` 用 `animation-play-state: paused`
+  停住并降到 45% 透明度。`prefers-reduced-motion` 下不播动画。
+- `mode` 由 `avatarMode` 决定：休息日或已下班为 `off`，午休为 `break`，其余 `work`。
+
 ## 跳动是怎么来的
 
 `earned(t)` 是计算口径在时刻 `t` 的值，`t` 保留到毫秒，本身就是连续函数，所以**没有任何插值**：
