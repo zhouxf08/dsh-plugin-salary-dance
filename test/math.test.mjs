@@ -624,6 +624,19 @@ check('窄侧栏不显示已工作行', nodeByClass(railView, 'pd-strip-sub'), '
 // The avatar states the same thing the number does: paid → moving, break → slow,
 // stopped → still. It is a function component, so the harness leaves it un-invoked;
 // these read its props before rendering and its output when called directly.
+const avatarPropsAt = (iso, patch) => {
+  const tree = render(iso, Object.assign({ monthlySalary: 8000 }, patch || {}));
+  let found = null;
+  (function walk(node) {
+    if (found !== null || node === null || node === undefined) return;
+    if (Array.isArray(node)) { node.forEach(walk); return; }
+    if (typeof node !== 'object' || node.children === undefined) return;
+    if (node.type === api.Avatar) { found = node.props; return; }
+    node.children.forEach(walk);
+  })(tree);
+  return found === null ? {} : found;
+};
+
 const avatarModeAt = (iso, patch) => {
   const tree = render(iso, Object.assign({ monthlySalary: 8000 }, patch || {}));
   let found = null;
@@ -638,8 +651,10 @@ const avatarModeAt = (iso, patch) => {
 };
 check('工作中：头像 mode', avatarModeAt('2026-10-14T14:00:00'), 'work');
 check('午休中：头像 mode', avatarModeAt('2026-10-14T12:30:00'), 'break');
-check('下班后：头像 mode', avatarModeAt('2026-10-14T19:00:00'), 'off');
-check('休息日：头像 mode', avatarModeAt('2026-10-17T14:00:00'), 'off');
+// Off the clock it no longer freezes: it keeps moving, then flops down, on a loop.
+check('下班后：进入循环模式', avatarPropsAt('2026-10-14T19:00:00').cycle, 'true');
+check('下班后：循环前半段在运动', avatarPropsAt('2026-10-14T19:00:00').mode, 'work');
+check('休息日：也是循环模式', avatarPropsAt('2026-10-17T14:00:00').cycle, 'true');
 check('关掉午休：头像 mode', avatarModeAt('2026-10-14T12:30:00', { lunchEnabled: false }), 'work');
 check('工作中：头像不加修饰类', api.Avatar({ mode: 'work' }).props.className, 'pd-avatar');
 check('午休中：头像加 slow', api.Avatar({ mode: 'break' }).props.className, 'pd-avatar slow');
@@ -691,8 +706,13 @@ const kindOf = (tree) => {
 };
 check('工作中默认形象是篮球舞', kindOf(before), 'hoop');
 // Off the clock the figure lies down, whichever character was picked.
-check('下班后变成躺平', kindOf(render('2026-10-14T19:00:00', { monthlySalary: 8000 })), 'lie');
-check('休息日也是躺平', kindOf(render('2026-10-17T14:00:00', { monthlySalary: 8000 })), 'lie');
+// The lying pose is one half of the loop rather than the only pose.
+const cycleSvg = api.Avatar({ kind: 'hoop', cycle: true });
+const cycleJson = JSON.stringify(cycleSvg);
+check('循环里同时有运动与躺平两个姿态', cycleJson.includes('pose-work') && cycleJson.includes('pose-lie'), 'true');
+check('循环用 CSS 交替', /\.pd-avatar\.cycle \.pose-work\{[^}]*animation:pd-pose-work/.test(api.CSS), 'true');
+check('交替接近各占一半', /@keyframes pd-pose-work\{ 0%,49\.99%\{ opacity:1 \} 50%,100%\{ opacity:0 \} \}/.test(api.CSS), 'true');
+check('工作中不进入循环', avatarPropsAt('2026-10-14T14:00:00').cycle, 'false');
 // And the countdown turns into a plain "you can go home".
 const afterTree = render('2026-10-14T19:00:00', { monthlySalary: 8000 });
 check('下班后提示该下班了', flatText(afterTree).includes('该下班了'), 'true');

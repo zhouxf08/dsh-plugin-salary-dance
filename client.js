@@ -761,6 +761,13 @@ window.__ModuleLoader__.load({
 .pd-avatar.off .ball,
 .pd-avatar.off .burger,
 .pd-avatar.off .arm{ animation-play-state:paused; opacity:.45; }
+/* Off-duty loop: the working pose for half the cycle, then lying down. The inner
+   animations keep running underneath, so the first half really is "moving". */
+.pd-avatar .pose-lie{ opacity:0; }
+.pd-avatar.cycle .pose-work{ animation:pd-pose-work 4.6s steps(1,end) infinite; }
+.pd-avatar.cycle .pose-lie{ animation:pd-pose-lie 4.6s steps(1,end) infinite; }
+@keyframes pd-pose-work{ 0%,49.99%{ opacity:1 } 50%,100%{ opacity:0 } }
+@keyframes pd-pose-lie{ 0%,49.99%{ opacity:0 } 50%,100%{ opacity:1 } }
 @keyframes pd-bob{ 0%,100%{ transform:translateY(0) } 50%{ transform:translateY(5px) } }
 @keyframes pd-swing{ 0%,100%{ transform:rotate(0deg) } 50%{ transform:rotate(-14deg) } }
 @media (prefers-reduced-motion: reduce){
@@ -1169,24 +1176,36 @@ window.__ModuleLoader__.load({
 		}
 
 		/** One character, animating. `kind` selects which; `speed` slows or stops it. */
+		/**
+		 * One character, animating. `kind` selects which; `mode` slows or stops it.
+		 *
+		 * With `cycle`, the chosen character and the lying-down pose are drawn stacked
+		 * and cross-faded by CSS on a loop — off the clock the figure keeps moving, then
+		 * flops down, over and over.
+		 */
 		function Avatar(props) {
 			const entry = drawAvatar(props.kind);
 			const mode = props.mode || 'work';
 			const cls = 'pd-avatar' + (mode === 'off' ? ' off' : mode === 'break' ? ' slow' : '');
-			return h(
-				'svg',
-				{
-					className: cls,
-					'data-kind': entry.id,
-					viewBox: '0 0 32 32',
-					width: 27,
-					height: 27,
-					'aria-hidden': 'true',
-					fill: 'currentColor',
-					stroke: 'none'
-				},
-				entry.draw()
-			);
+			const box = {
+				className: cls + (props.cycle ? ' cycle' : ''),
+				'data-kind': entry.id,
+				viewBox: '0 0 32 32',
+				width: 27,
+				height: 27,
+				'aria-hidden': 'true',
+				fill: 'currentColor',
+				stroke: 'none'
+			};
+			if (props.cycle) {
+				return h(
+					'svg',
+					box,
+					h('g', { className: 'pose pose-work' }, entry.draw()),
+					h('g', { className: 'pose pose-lie' }, drawAvatar('lie').draw())
+				);
+			}
+			return h('svg', box, entry.draw());
 		}
 
 		function Icon(props) {
@@ -1652,9 +1671,7 @@ window.__ModuleLoader__.load({
 			// Off the clock means lying down, whatever character was picked.
 			const offDuty = !allowed || shift.after;
 			const workAvatars = AVATARS.filter(function (item) { return item.offPose !== true; });
-			const avatarKind = offDuty
-				? 'lie'
-				: workAvatars[avatarIndex % workAvatars.length].id;
+			const avatarKind = workAvatars[avatarIndex % workAvatars.length].id;
 			// A rest day serves nothing: the shift window is still solved (so the clock
 			// times stay meaningful) but nothing is counted against it. Without this the
 			// progress rail climbs through a Saturday as if the shift were running.
@@ -2081,7 +2098,12 @@ window.__ModuleLoader__.load({
 								setAvatarIndex(function (index) { return (index + 1) % workAvatars.length; });
 							}
 						}
-					}, h(Avatar, { mode: avatarMode, kind: avatarKind })),
+					}, h(Avatar, {
+						kind: avatarKind,
+						// Off the clock the figure still moves, then flops down, on a loop.
+						cycle: offDuty,
+						mode: offDuty ? 'work' : avatarMode
+					})),
 					shift.onBreak
 						? h('span', { className: 'pd-break', title: breakHint() }, t('stat.onBreak'))
 						: null,
