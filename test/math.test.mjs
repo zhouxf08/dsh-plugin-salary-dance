@@ -602,13 +602,13 @@ check('状态条显示已工作', hasText(stripView, '已工作 4 h 0 m'), 'true
 check('状态条显示距离下班', hasText(stripView, '距离下班 4 h 0 m'), 'true');
 check('状态条有进度条', nodeByClass(stripView, 'pd-mini-bar') !== null, 'true');
 check('头像排在计数之后', (function () {
-  const btn = nodeByClass(stripView, 'pd-strip-btn');
+  const btn = nodeByClass(stripView, 'pd-strip-open');
   if (btn === null) return '(none)';
-  const classes = btn.children.map((c) => {
+  const names = btn.children.map((c) => {
     if (c === null || typeof c !== 'object') return '';
-    return (c.props && c.props.className) || (c.type && c.type.name) || '';
+    return (c.props && c.props.className) || '';
   });
-  return classes.indexOf('pd-strip-main') < classes.findIndex((c) => c === 'Avatar') ? 'after' : 'before';
+  return names.indexOf('pd-strip-main') < names.indexOf('pd-avatar-btn') ? 'after' : 'before';
 })(), 'after');
 // The break badge must not take part in the row's layout, or it squeezes the rate
 // and projection columns out of the way.
@@ -674,8 +674,8 @@ check('svg 标出当前角色', api.Avatar({ mode: 'work', kind: 'burger' }).pro
 // Hover must actually change the rendered character.
 const before = render('2026-10-14T14:00:00', { monthlySalary: 8000 });
 const after = (function () {
-  const btn = nodeByClass(before, 'pd-strip-btn');
-  btn.props.onPointerEnter();
+  const btn = nodeByClass(before, 'pd-avatar-btn');
+  btn.props.onClick({ stopPropagation: function () {} });
   return renderKeepingState();
 })();
 const kindOf = (tree) => {
@@ -689,9 +689,10 @@ const kindOf = (tree) => {
   })(tree);
   return found;
 };
-check('hover 前是运球', kindOf(before), 'dribble');
-check('hover 后换成另一个', kindOf(after), 'burger');
-check('状态条按钮绑了 hover', typeof nodeByClass(before, 'pd-strip-btn').props.onPointerEnter, 'function');
+check('默认形象是运球', kindOf(before), 'dribble');
+check('点头像换成另一个形象', kindOf(after), 'burger');
+check('头像可点击换形象', typeof nodeByClass(before, 'pd-avatar-btn').props.onClick, 'function');
+check('头像按钮不打开面板', nodeByClass(before, 'pd-avatar-btn').props.title, '换一个形象');
 check('午休时动画变慢', /\.pd-avatar\.slow \.ball,[\s\S]{0,120}animation-duration:1\.3s/.test(api.CSS), 'true');
 check('下班后动画暂停', /\.pd-avatar\.off \.ball,[\s\S]{0,80}animation-play-state:paused/.test(api.CSS), 'true');
 check('尊重 prefers-reduced-motion', /prefers-reduced-motion: reduce\)[\s\S]{0,80}\.pd-avatar \.ball/.test(api.CSS), 'true');
@@ -898,7 +899,7 @@ console.log('\n--- 设置入口 ---');
 // The ticker registers into the host's own sidebar slot, so nothing floats until
 // the settings panel is opened from it.
 function findStripButton(tree) {
-  return nodeByClass(tree, 'pd-strip-btn');
+  return nodeByClass(tree, 'pd-strip-open');
 }
 
 const stripTree = render('2026-10-14T14:00:00', { monthlySalary: 8000 });
@@ -906,7 +907,7 @@ check('注册进侧栏插槽', api.SIDEBAR_SLOT, 'sidebar.footer.action');
 check('渲染出侧栏容器', nodeByClass(stripTree, 'pd-side') !== null, 'true');
 check('渲染出状态条', nodeByClass(stripTree, 'pd-strip') !== null, 'true');
 check('不再渲染浮动卡片', nodeByClass(stripTree, 'pd-root'), 'null');
-check('状态条是按钮', findStripButton(stripTree) !== null, 'true');
+check('状态条是按钮（开面板）', findStripButton(stripTree) !== null, 'true');
 check('状态条有可访问标题', findStripButton(stripTree).props.title, '设置');
 
 const openedTree = (function () {

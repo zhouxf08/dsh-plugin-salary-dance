@@ -525,14 +525,21 @@ window.__ModuleLoader__.load({
   display:flex; flex-direction:column; gap:5px;
 }
 .pd-strip{ position:relative; display:flex; flex-direction:column; gap:4px; }
+.pd-strip-row{ display:flex; align-items:center; gap:8px; min-width:0; }
 .pd-strip .pd-break{ right:0; bottom:12px; z-index:1; }
-.pd-strip-btn{
+.pd-avatar-btn{
+  display:inline-flex; flex:0 0 auto; padding:0; margin:0;
+  cursor:pointer; color:inherit; line-height:0; border-radius:8px;
+}
+.pd-avatar-btn:hover{ background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.06)); }
+.pd-avatar-btn:focus-visible{ outline:2px solid var(--dsw-alias-state-business-primary,#4a90e2); outline-offset:2px; }
+.pd-strip-open{
   display:flex; align-items:center; gap:8px;
-  width:100%; min-width:0;
+  flex:1 1 auto; min-width:0;
   border:0; background:transparent; padding:2px 0;
   font-family:inherit; color:inherit; text-align:left; cursor:pointer;
 }
-.pd-strip-btn:focus-visible{ outline:2px solid var(--dsw-alias-state-business-primary,#4a90e2); outline-offset:2px; border-radius:6px; }
+.pd-strip-open:focus-visible{ outline:2px solid var(--dsw-alias-state-business-primary,#4a90e2); outline-offset:2px; border-radius:6px; }
 .pd-strip-main{ display:flex; align-items:baseline; gap:1px; flex:0 0 auto; }
 .pd-strip-main .v{ font-size:15px; font-weight:700; font-variant-numeric:tabular-nums; letter-spacing:-.01em; }
 .pd-strip-main .sym{ font-size:11px; font-weight:600; opacity:.8; }
@@ -1093,18 +1100,17 @@ window.__ModuleLoader__.load({
 				label: '运球',
 				draw: function () {
 					return [
-						// head
-						h('circle', { cx: 11.4, cy: 7.0, r: 3.1 }),
-						// torso
-						h('path', { d: 'M11.4 10.5 C9.4 10.5 8.2 11.9 8.2 13.8 L8.2 18.2 C8.2 19.4 9.1 20.3 10.3 20.3 L12.5 20.3 C13.7 20.3 14.6 19.4 14.6 18.2 L14.6 13.8 C14.6 11.9 13.4 10.5 11.4 10.5 Z' }),
-						// back leg
-						h('path', { d: 'M9.4 20.1 L7.5 26.4 C7.3 27.2 7.8 27.8 8.6 27.8 L9.5 27.8 C10.1 27.8 10.6 27.4 10.7 26.8 L11.4 21.2 Z' }),
-						// front leg
-						h('path', { d: 'M13.5 20.1 L16.0 26.2 C16.2 27.0 15.7 27.6 14.9 27.6 L14.1 27.6 C13.5 27.6 13.0 27.2 12.9 26.6 L11.7 21.2 Z' }),
-						// the arm that works the ball
-						h('path', { className: 'moving arm', d: 'M13.3 13.4 L18.1 16.2 C18.8 16.5 19.0 17.3 18.7 17.9 C18.4 18.5 17.7 18.8 17.1 18.5 L12.4 15.9 Z' }),
-						// ball
-						h('circle', { className: 'moving ball', cx: 21.2, cy: 21.4, r: 2.85 })
+						// crouched: head low and forward, ball at the ground
+						h('circle', { cx: 13.6, cy: 9.6, r: 3.0 }),
+						h('path', { d: 'M12.9 12.7 C10.4 13.3 8.6 15.0 8.0 17.4 L7.4 19.6 C7.2 20.4 7.7 21.1 8.5 21.2 L10.9 21.5 C11.9 21.6 12.8 20.9 12.9 19.9 L13.6 16.2 C14.1 14.7 14.0 13.4 12.9 12.7 Z' }),
+						// front leg, planted
+						h('path', { d: 'M9.0 21.4 L6.8 26.9 C6.5 27.6 7.0 28.2 7.7 28.2 L8.7 28.2 C9.3 28.2 9.8 27.8 9.9 27.2 L10.8 22.0 Z' }),
+						// back leg, trailing
+						h('path', { d: 'M12.6 21.6 L18.2 24.6 C18.9 25.0 19.1 25.8 18.7 26.5 C18.3 27.1 17.5 27.3 16.9 26.9 L11.7 23.8 Z' }),
+						// the hand on the ball
+						h('path', { className: 'moving arm', d: 'M11.6 14.6 L16.6 17.9 C17.3 18.3 17.4 19.1 17.0 19.7 C16.6 20.3 15.9 20.5 15.3 20.1 L10.6 17.1 Z' }),
+						// ball, right at the floor
+						h('circle', { className: 'moving ball', cx: 19.4, cy: 24.4, r: 2.9 })
 					];
 				}
 			},
@@ -1113,17 +1119,19 @@ window.__ModuleLoader__.load({
 				label: '吃汉堡',
 				draw: function () {
 					return [
-						h('circle', { cx: 12.2, cy: 7.0, r: 3.1 }),
-						h('path', { d: 'M12.2 10.5 C10.2 10.5 9.0 11.9 9.0 13.8 L9.0 18.4 C9.0 19.6 9.9 20.5 11.1 20.5 L13.3 20.5 C14.5 20.5 15.4 19.6 15.4 18.4 L15.4 13.8 C15.4 11.9 14.2 10.5 12.2 10.5 Z' }),
-						h('path', { d: 'M10.2 20.3 L8.6 26.5 C8.4 27.3 8.9 27.9 9.7 27.9 L10.6 27.9 C11.2 27.9 11.7 27.5 11.8 26.9 L12.2 21.4 Z' }),
-						h('path', { d: 'M14.2 20.3 L16.1 26.3 C16.3 27.1 15.8 27.7 15.0 27.7 L14.2 27.7 C13.6 27.7 13.1 27.3 13.0 26.7 L12.5 21.4 Z' }),
-						// arm lifted to the mouth
-						h('path', { className: 'moving arm', d: 'M14.1 13.2 L17.4 10.2 C17.9 9.7 18.7 9.8 19.1 10.3 C19.5 10.8 19.4 11.6 18.9 12.0 L15.6 15.0 Z' }),
-						// burger, held up in front of the face
+						// upright, head high, one arm raised to the mouth
+						h('circle', { cx: 13.0, cy: 6.6, r: 3.1 }),
+						h('path', { d: 'M13.0 10.1 C10.9 10.1 9.6 11.5 9.6 13.6 L9.6 19.2 C9.6 20.4 10.5 21.3 11.7 21.3 L14.3 21.3 C15.5 21.3 16.4 20.4 16.4 19.2 L16.4 13.6 C16.4 11.5 15.1 10.1 13.0 10.1 Z' }),
+						// legs together
+						h('path', { d: 'M11.2 21.2 L10.4 27.0 C10.3 27.7 10.8 28.2 11.5 28.2 L12.3 28.2 C12.9 28.2 13.4 27.8 13.5 27.2 L14.0 21.5 Z' }),
+						h('path', { d: 'M14.8 21.2 L15.7 26.9 C15.8 27.6 15.3 28.1 14.6 28.1 L13.9 28.1 C13.3 28.1 12.8 27.7 12.7 27.1 L12.2 21.5 Z' }),
+						// arm bent up to the face
+						h('path', { className: 'moving arm', d: 'M15.6 13.0 L18.6 9.4 C19.1 8.8 19.9 8.8 20.4 9.3 C20.9 9.8 20.9 10.6 20.4 11.1 L17.2 14.6 Z' }),
+						// burger held at mouth level
 						h('g', { className: 'moving burger' },
-							h('path', { d: 'M17.6 6.2 C17.6 5.0 19.9 5.0 19.9 6.2 Z' }),
-							h('rect', { x: 17.4, y: 6.6, width: 2.8, height: 1.2, rx: 0.5 }),
-							h('path', { d: 'M17.4 8.2 C17.4 9.2 19.9 9.2 19.9 8.2 Z' })
+							h('path', { d: 'M17.2 5.0 C17.2 3.6 20.0 3.6 20.0 5.0 Z' }),
+							h('rect', { x: 17.0, y: 5.4, width: 3.2, height: 1.3, rx: 0.6 }),
+							h('path', { d: 'M17.0 7.1 C17.0 8.3 20.0 8.3 20.0 7.1 Z' })
 						)
 					];
 				}
@@ -2007,22 +2015,40 @@ window.__ModuleLoader__.load({
 			const strip = h(
 				'div',
 				{ className: 'pd-strip', ref: stripRef },
+				// One row: amount → avatar → metrics. The avatar is a span acting as a
+				// button (a real button cannot nest inside one), and it stops the click
+				// from opening the panel.
 				h(
 					'button',
 					{
 						type: 'button',
-						className: 'pd-strip-btn',
+						className: 'pd-strip-open',
 						title: t('action.configure'),
-						onClick: openPanel,
-						onPointerEnter: function () {
-							setAvatarIndex(function (index) { return (index + 1) % AVATARS.length; });
-						}
+						'aria-label': t('action.configure'),
+						onClick: openPanel
 					},
 					h('span', { className: 'pd-strip-main' },
 						h('span', { className: 'sym' }, '¥'),
 						h('span', { className: 'v' }, groupMoney(formatMoney(Math.floor(shownEarned * 10000) / 10000, 4)))
 					),
-					h(Avatar, { mode: avatarMode, kind: AVATARS[avatarIndex % AVATARS.length].id }),
+					h('span', {
+						className: 'pd-avatar-btn',
+						role: 'button',
+						tabIndex: 0,
+						title: t('action.swapAvatar'),
+						'aria-label': t('action.swapAvatar'),
+						onClick: function (event) {
+							event.stopPropagation();
+							setAvatarIndex(function (index) { return (index + 1) % AVATARS.length; });
+						},
+						onKeyDown: function (event) {
+							if (event.key === 'Enter' || event.key === ' ') {
+								event.preventDefault();
+								event.stopPropagation();
+								setAvatarIndex(function (index) { return (index + 1) % AVATARS.length; });
+							}
+						}
+					}, h(Avatar, { mode: avatarMode, kind: AVATARS[avatarIndex % AVATARS.length].id })),
 					shift.onBreak
 						? h('span', { className: 'pd-break', title: breakHint() }, t('stat.onBreak'))
 						: null,
@@ -2076,6 +2102,7 @@ window.__ModuleLoader__.load({
 				'unit.perHour': '元 / 时',
 				'list.separator': '、',
 				'action.configure': '设置',
+				'action.swapAvatar': '换一个形象',
 				'action.next': '下一步',
 				'action.back': '上一步',
 				'action.done': '完成配置，开始使用',
@@ -2145,6 +2172,7 @@ window.__ModuleLoader__.load({
 				'unit.perHour': 'CNY / h',
 				'list.separator': ', ',
 				'action.configure': 'Configure',
+				'action.swapAvatar': 'Next character',
 				'action.next': 'Next',
 				'action.back': 'Back',
 				'action.done': 'Finish and start',
