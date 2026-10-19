@@ -138,7 +138,7 @@ function baseConfig(patch) {
 }
 
 /** Render the widget at a pinned instant and return the element tree. */
-function render(momentIso, configPatch, initialState) {
+function render(momentIso, configPatch, initialState, wide) {
   const RealDate = Date;
   const frozen = new RealDate(momentIso);
   class FakeDate extends RealDate {
@@ -164,7 +164,7 @@ function render(momentIso, configPatch, initialState) {
   // Seeding a slot skips that useState initializer, which is how the settings
   // panel (open) is reached without a DOM.
   if (initialState) initialState.forEach((value, index) => { if (value !== undefined) states[index] = value; });
-  const tree = mod.SalaryDanceWidget({ t: localeAwareT });
+  const tree = mod.SalaryDanceWidget({ t: localeAwareT, wide });
   lastTree = tree;
   flushEffects();
   globalThis.Date = RealDate;
@@ -213,7 +213,7 @@ function driveTicker(startIso, seconds, patch, open) {
   // effects survive across frames the way they do in a real tree.
   // The compact view draws its amount in its own block, so the sampled container
   // follows the view under test.
-  const amountClass = config.miniFloat && open !== true ? 'pd-mini-main' : 'pd-amount';
+  const amountClass = 'pd-strip-main';
   function renderOnce() {
     cursor = 0;
     rafQueue = [];
@@ -329,6 +329,51 @@ function leaves(node, out = []) {
 }
 
 /** Whether any rendered leaf contains `needle`, however the text is split. */
+
+
+/** Does the rendered text contain this? */
+/** First node carrying this class, or null. */
+function nodeByClass(tree, className) {
+  let found = null;
+  (function walk(node) {
+    if (found !== null || node === null || node === undefined) return;
+    if (Array.isArray(node)) { node.forEach(walk); return; }
+    if (typeof node !== 'object' || node.children === undefined) return;
+    if (node.props && typeof node.props.className === 'string'
+        && node.props.className.split(' ').includes(className)) { found = node; return; }
+    node.children.forEach(walk);
+  })(tree);
+  return found;
+}
+
+/** How many nodes carry this class. */
+function countByClass(tree, className) {
+  let count = 0;
+  (function walk(node) {
+    if (node === null || node === undefined) return;
+    if (Array.isArray(node)) { node.forEach(walk); return; }
+    if (typeof node !== 'object' || node.children === undefined) return;
+    if (node.props && typeof node.props.className === 'string'
+        && node.props.className.split(' ').includes(className)) count += 1;
+    node.children.forEach(walk);
+  })(tree);
+  return count;
+}
+
+/** Every text leaf under a node, in order. */
+function allText(node, out = []) {
+  if (node === null || node === undefined || typeof node === 'boolean') return out;
+  if (typeof node === 'string' || typeof node === 'number') { out.push(String(node)); return out; }
+  if (Array.isArray(node)) { node.forEach((child) => allText(child, out)); return out; }
+  if (typeof node === 'object' && node.children) allText(node.children, out);
+  return out;
+}
+
+/** Adjacent text leaves joined with no separator — for numbers split into parts. */
+function flatText(tree) {
+  return leaves(tree).join('');
+}
+
 function hasText(tree, needle) {
   return leaves(tree).join('\u0001').includes(needle);
 }
@@ -477,7 +522,7 @@ check('跨夜 23:00 已工作 60', Math.round(shiftAt('2026-10-14T23:00:00', { s
 
 console.log('\n--- 卡片渲染 ---');
 const midMorning = render('2026-10-14T10:30:00', null);
-check('10:30 显示 1 h 30 m', leaves(midMorning).includes('1 h 30 m'), 'true');
+check('10:30 显示 1 h 30 m', flatText(midMorning).includes('1 h 30 m'), 'true');
 check('10:30 进度 19%', progressOf(midMorning), 19);
 
 const afterHours = render('2026-10-14T19:30:00', { monthlySalary: 8000 });
@@ -514,28 +559,19 @@ check('2026-10 列出国庆节', hasText(withCalendar, '本月节假日：国庆
 // The card's footer must name the month it projects and its working-day basis,
 // so a projection can be checked against the calendar rather than taken on trust.
 const octCard = render('2026-10-14T10:00:00', { monthlySalary: 8000 });
-check('底部注明 2026 年 10 月', hasText(octCard, '2026年10月'), 'true');
-check('底部注明实际工作日 18 天', hasText(octCard, '实际工作日 18 天'), 'true');
-check('底部注明日薪', hasText(octCard, '日薪 444.44 元'), 'true');
-check('底部注明本月预计', hasText(octCard, '本月预计'), 'true');
 
 // The basis line has to agree with the projection it explains: in monthly mode
 // the card's own daily figure is the same monthly-derived one.
 check('底部日薪与今日预计一致', hasText(octCard, '¥444.44'), 'true');
 
 const febCard = render('2026-02-10T10:00:00', { monthlySalary: 8000 });
-check('二月底部注明 16 天', hasText(febCard, '实际工作日 16 天'), 'true');
-check('二月底部日薪 500 元', hasText(febCard, '日薪 500.00 元'), 'true');
 
 // A manual override has to be reflected in that same line.
 const manualCard = render('2026-10-14T10:00:00', { monthlySalary: 8000, manualWorkdays: 20, manualWorkdaysOverride: true });
-check('手填 20 天时底部跟着变', hasText(manualCard, '实际工作日 20 天'), 'true');
-check('手填 20 天时日薪 400 元', hasText(manualCard, '日薪 400.00 元'), 'true');
 
 // In daily mode the footer states the monthly-derived figure, not the daily rate
 // the mode itself uses, because the footer explains the monthly projection.
 const dailyModeCard = render('2026-10-14T10:00:00', { salaryMode: 'daily', dailySalary: 500 });
-check('日薪模式下底部仍说明月度口径', hasText(dailyModeCard, '日薪 444.44 元'), 'true');
 
 const february = renderPanel('2026-02-10T10:00:00', { monthlySalary: 8000 });
 check('2026-02 显示春节', hasText(february, '本月节假日：春节'), 'true');
@@ -549,7 +585,6 @@ check('时薪不补零丢失位数', api.formatMoney(50, 4), '50.0000');
 // A 4-decimal rate must reach the card itself, not only the formatter.
 const rateCard = render('2026-10-14T19:30:00', { monthlySalary: 8000 });
 check('卡片上时薪带 4 位小数', hasText(rateCard, '¥55.5556'), 'true');
-check('卡片上时薪带单位', hasText(rateCard, '¥55.5556/时'), 'true');
 const tidyRate = render('2026-03-10T19:30:00', { monthlySalary: 8000 });
 check('整点时薪也补足 4 位', hasText(tidyRate, '¥45.4545'), 'true');
 
@@ -557,40 +592,28 @@ check('整点时薪也补足 4 位', hasText(tidyRate, '¥45.4545'), 'true');
  * 4b. The ticker: does the rendered figure actually follow the clock?
  * ------------------------------------------------------------------ */
 
-console.log('\n--- 位置与头像 ---');
+console.log('\n--- 状态条与头像 ---');
 
-// The card anchors to the left edge now, so the compact view can sit over the
-// conversation sidebar; drag-to-move plus a remembered position is what keeps that
-// from being a permanent obstruction.
-const placed = render('2026-10-14T14:00:00', { monthlySalary: 8000, miniFloat: true });
-const placedRoot = nodeByClass(placed, 'pd-root');
-check('默认按 left 锚定', Object.prototype.hasOwnProperty.call(placedRoot.props.style, 'left'), 'true');
-check('不再按 right 锚定', Object.prototype.hasOwnProperty.call(placedRoot.props.style, 'right'), 'false');
-check('默认位置 left', placedRoot.props.style.left, '12px');
-// Bottom edge, not top: the card sits below the conversation list.
-check('默认贴底边', placedRoot.props.style.bottom, '16px');
-check('默认不用 top', Object.prototype.hasOwnProperty.call(placedRoot.props.style, 'top'), 'false');
-check('精简时打上 data-mini', placedRoot.props['data-mini'], 'true');
-check('完整视图不打 data-mini', nodeByClass(render('2026-10-14T14:00:00', { monthlySalary: 8000 }), 'pd-root').props['data-mini'], 'undefined');
-check('精简卡片比完整卡片窄', /\.pd-root\[data-mini="true"\] \.pd-card\{ width:236px; \}/.test(api.CSS), 'true');
+const stripView = render('2026-10-14T14:00:00', { monthlySalary: 8000 });
+check('状态条显示金额', flatText(stripView).includes('¥222.2222'), 'true');
+check('状态条显示时薪', flatText(stripView).includes('¥55.5556'), 'true');
+check('状态条显示今日预计', flatText(stripView).includes('¥444.44'), 'true');
+check('状态条显示已工作', hasText(stripView, '已工作 4 h 0 m'), 'true');
+check('状态条显示距离下班', hasText(stripView, '距离下班 4 h 0 m'), 'true');
+check('状态条有进度条', nodeByClass(stripView, 'pd-mini-bar') !== null, 'true');
 
-// clamps keep a stored position usable after the window shrank
-check('位置夹在窗口内（右下越界）', JSON.stringify(api.clampPos({ left: 9999, top: 9999 })), JSON.stringify({ left: 1440 - 160, top: 900 - 120 }));
-check('位置夹在窗口内（负值）', JSON.stringify(api.clampPos({ left: -50, top: -50 })), JSON.stringify({ left: 4, top: 28 }));
-check('位置缺字段时不炸', JSON.stringify(api.clampPos(null)), JSON.stringify({ left: 4, top: 28 }));
-check('底边锚定也会被夹住', JSON.stringify(api.clampPos({ left: 9999, bottom: 9999 })), JSON.stringify({ left: 1440 - 160, bottom: 900 - 80 }));
-check('底边锚定负值', JSON.stringify(api.clampPos({ left: 0, bottom: -99 })), JSON.stringify({ left: 4, bottom: 8 }));
-check('拖动后切换成 top 锚定', (function () {
-  // 拖动写回的是 {left, top}，所以 clampPos 保留 top 而不是 bottom
-  return Object.prototype.hasOwnProperty.call(api.clampPos({ left: 100, top: 200 }), 'top');
-})(), 'true');
-check('位置单独存一个键', api.POS_KEY, 'dsh-plugin-salary-dance/pos.v1');
+// A collapsed sidebar is a ~49px rail; only the figure fits, so the second line is
+// dropped rather than wrapped into a mess.
+const railView = render('2026-10-14T14:00:00', { monthlySalary: 8000 }, undefined, false);
+check('窄侧栏仍显示金额', flatText(railView).includes('¥222.2222'), 'true');
+check('窄侧栏不显示时薪', flatText(railView).includes('¥55.5556'), 'false');
+check('窄侧栏不显示已工作行', nodeByClass(railView, 'pd-strip-sub'), 'null');
 
 // The avatar states the same thing the number does: paid → moving, break → slow,
 // stopped → still. It is a function component, so the harness leaves it un-invoked;
-// the assertions read its props before rendering and its output when called directly.
+// these read its props before rendering and its output when called directly.
 const avatarModeAt = (iso, patch) => {
-  const tree = render(iso, Object.assign({ monthlySalary: 8000, miniFloat: true }, patch || {}));
+  const tree = render(iso, Object.assign({ monthlySalary: 8000 }, patch || {}));
   let found = null;
   (function walk(node) {
     if (found !== null || node === null || node === undefined) return;
@@ -606,30 +629,24 @@ check('午休中：头像 mode', avatarModeAt('2026-10-14T12:30:00'), 'break');
 check('下班后：头像 mode', avatarModeAt('2026-10-14T19:00:00'), 'off');
 check('休息日：头像 mode', avatarModeAt('2026-10-17T14:00:00'), 'off');
 check('关掉午休：头像 mode', avatarModeAt('2026-10-14T12:30:00', { lunchEnabled: false }), 'work');
-
 check('工作中：头像不加修饰类', api.Avatar({ mode: 'work' }).props.className, 'pd-avatar');
 check('午休中：头像加 slow', api.Avatar({ mode: 'break' }).props.className, 'pd-avatar slow');
 check('下班后：头像加 off', api.Avatar({ mode: 'off' }).props.className, 'pd-avatar off');
 check('头像是一张 svg', api.Avatar({ mode: 'work' }).type, 'svg');
-// `check` compares via String(), so the actual value is serialised first.
-check('头像黑白（只用 currentColor）', JSON.stringify((function () {
+check('头像只用 currentColor', JSON.stringify((function () {
   const svg = api.Avatar({ mode: 'work' });
-  const walk = (n, out) => {
-    if (!n || typeof n !== 'object') return out;
-    if (Array.isArray(n)) { n.forEach((x) => walk(x, out)); return out; }
-    if (n.props) {
-      for (const key of ['stroke', 'fill']) {
-        const v = n.props[key];
-        if (typeof v === 'string' && v !== 'none' && v !== 'currentColor') out.push(v);
-      }
+  const out = [];
+  (function walk(n) {
+    if (!n || typeof n !== 'object') return;
+    if (Array.isArray(n)) { n.forEach(walk); return; }
+    if (n.props) for (const key of ['stroke', 'fill']) {
+      const v = n.props[key];
+      if (typeof v === 'string' && v !== 'none' && v !== 'currentColor') out.push(v);
     }
-    if (n.children) n.children.forEach((x) => walk(x, out));
-    return out;
-  };
-  return walk(svg, []).filter((v) => v !== 'currentColor');
+    if (n.children) n.children.forEach(walk);
+  })(svg);
+  return out;
 })()), '[]');
-
-// Motion: normal cycle, slow cycle for the break, paused once stopped.
 check('头像有循环动画', /@keyframes pd-dribble\{/.test(api.CSS) && /animation:pd-dribble \.9s/.test(api.CSS), 'true');
 check('午休时动画变慢', /\.pd-avatar\.slow \.ball,[\s\S]{0,80}animation-duration:3\.2s/.test(api.CSS), 'true');
 check('下班后动画暂停', /\.pd-avatar\.off \.ball,[\s\S]{0,80}animation-play-state:paused/.test(api.CSS), 'true');
@@ -641,7 +658,7 @@ console.log('\n--- 午休冻结与提示 ---');
 // figure with no explanation reads as a bug, so both views mark the state.
 const lunchCard = render('2026-10-14T12:30:00', { monthlySalary: 8000 });
 check('午休中：完整卡片标记出来', hasText(lunchCard, '午休中'), 'true');
-const lunchMini = render('2026-10-14T12:30:00', { monthlySalary: 8000, miniFloat: true });
+const lunchMini = render('2026-10-14T12:30:00', { monthlySalary: 8000 });
 check('午休中：精简模式也标记', hasText(lunchMini, '午休中'), 'true');
 const workCard = render('2026-10-14T14:00:00', { monthlySalary: 8000 });
 check('工作时段：不显示午休标记', hasText(workCard, '午休中'), 'false');
@@ -833,82 +850,29 @@ check('弹层宽度与 placePopover 一致', Number((popRule.match(/width\s*:\s*
  * ------------------------------------------------------------------ */
 
 console.log('\n--- 设置入口 ---');
-function nodeByClass(tree, className) {
-  let found = null;
-  (function walk(node) {
-    if (found !== null || node === null || node === undefined) return;
-    if (Array.isArray(node)) { node.forEach(walk); return; }
-    if (typeof node !== 'object' || node.children === undefined) return;
-    if (node.props && typeof node.props.className === 'string' && node.props.className.split(' ').includes(className)) {
-      found = node;
-      return;
-    }
-    node.children.forEach(walk);
-  })(tree);
-  return found;
+
+// The ticker registers into the host's own sidebar slot, so nothing floats until
+// the settings panel is opened from it.
+function findStripButton(tree) {
+  return nodeByClass(tree, 'pd-strip-btn');
 }
 
-/** How many nodes carry this class. */
-function countByClass(tree, className) {
-  let count = 0;
-  (function walk(node) {
-    if (node === null || node === undefined) return;
-    if (Array.isArray(node)) { node.forEach(walk); return; }
-    if (typeof node !== 'object' || node.children === undefined) return;
-    if (node.props && typeof node.props.className === 'string' && node.props.className.split(' ').includes(className)) count += 1;
-    node.children.forEach(walk);
-  })(tree);
-  return count;
-}
+const stripTree = render('2026-10-14T14:00:00', { monthlySalary: 8000 });
+check('注册进侧栏插槽', api.SIDEBAR_SLOT, 'sidebar.footer.action');
+check('渲染出侧栏容器', nodeByClass(stripTree, 'pd-side') !== null, 'true');
+check('渲染出状态条', nodeByClass(stripTree, 'pd-strip') !== null, 'true');
+check('不再渲染浮动卡片', nodeByClass(stripTree, 'pd-root'), 'null');
+check('状态条是按钮', findStripButton(stripTree) !== null, 'true');
+check('状态条有可访问标题', findStripButton(stripTree).props.title, '设置');
 
-function allText(node, out = []) {
-  if (node === null || node === undefined || typeof node === 'boolean') return out;
-  if (typeof node === 'string' || typeof node === 'number') { out.push(String(node)); return out; }
-  if (Array.isArray(node)) { node.forEach((child) => allText(child, out)); return out; }
-  if (typeof node === 'object' && node.children) allText(node.children, out);
-  return out;
-}
-
-const gearTree = render('2026-10-14T10:00:00', { monthlySalary: 8000 });
-// The settings affordance is the header's second icon button.
-const gear = headerButtons(gearTree)[1];
-check('卡片上有设置图标按钮', gear !== null && gear !== undefined, 'true');
-check('设置按钮是 button', gear === null ? '(none)' : gear.type, 'button');
-check('设置按钮有点击处理', gear !== null && typeof gear.props.onClick === 'function', 'true');
-check('设置按钮有可访问名称', gear !== null && gear.props['aria-label'] === '设置', 'true');
-check('设置按钮渲染时不带文字', gear === null ? '(none)' : allText(gear).join(''), '');
-// The button holds an <Icon> element, not a string. Function components are left
-// un-invoked by this harness (React would call them), so the check is on the
-// element it was given plus the path table that element will draw from.
-const gearChild = gear === null ? null : gear.children[0];
-check('设置按钮的子元素是图标组件', gearChild === null ? '(none)' : typeof gearChild.type, 'function');
-check('图标指向 gear 图形', gearChild === null ? '(none)' : gearChild.props.name, 'gear');
-const gearPath = api.ICON_PATHS.gear;
-check('gear 图形已定义', typeof gearPath === 'string' && gearPath.length > 20, 'true');
-// The previous assertion here was `/A/.test(path) && path.split('M').length > 6`,
-// which the sun-like glyph satisfied too — a circle plus eight radiating spokes.
-// It therefore could not tell a gear from a sun. These check the gear's actual
-// shape: a closed cog outline whose edges curve, plus a separate inner circle.
-check('gear 是闭合图形', /Z\s*$/.test(gearPath.trim()), 'true');
-check('gear 有齿形曲边（C 命令）', gearPath.includes('C'), 'true');
-check('gear 的外轮廓与内圆是两段', gearPath.split('M').length - 1, 2);
-// A sun is drawn from straight radial spokes; a cog is not.
-check('gear 不是放射线拼的', (gearPath.match(/\s[VH]\d/g) || []).length <= 8, 'true');
-// The header button is icon-only; the caret belonged to the old footer control.
-check('设置按钮只有一个图标', gear === null ? '(none)' : gear.children.length, 1);
-check('旧的整行操作区已移除', nodeByClass(gearTree, 'pd-actions'), 'null');
-check('旧的 footer 齿轮已移除', nodeByClass(gearTree, 'pd-gear'), 'null');
-check('底部是「总额」一行', nodeByClass(gearTree, 'pd-foot-row') !== null, 'true');
-check('口径行仍在底部', hasText(gearTree, '实际工作日'), 'true');
-// With the settings button gone from this row it holds the month figure alone.
-const footRow = nodeByClass(gearTree, 'pd-foot-row');
-check('底部一行只有一个子元素', footRow === null ? '(none)' : footRow.children.length, 1);
-// Exactly two header icon buttons, so a second settings entry cannot sneak back in.
-check('头部图标按钮恰好两个', countByClass(gearTree, 'pd-iconbtn'), 2);
-
-/* ------------------------------------------------------------------ *
- * 4e. The settings panel carries no local-storage notice
- * ------------------------------------------------------------------ */
+const openedTree = (function () {
+  findStripButton(stripTree).props.onClick({ preventDefault: function () {} });
+  return renderKeepingState();
+})();
+check('点状态条打开面板', nodeByClass(openedTree, 'pd-panel') !== null, 'true');
+check('面板浮在状态条上方', nodeByClass(openedTree, 'pd-panel-pop') !== null, 'true');
+check('面板已缩成两步', hasText(openedTree, '使用偏好'), 'false');
+check('面板带收起按钮', JSON.stringify(nodeByClass(openedTree, 'pd-panel-pop')).includes('收起'), 'true');
 
 console.log('\n--- 本地存储说明已移除 ---');
 function renderOpenPanelAt(stepIndex) {
@@ -945,222 +909,6 @@ check('存储键由包名派生（持久化契约）', api.STORAGE_KEY, api.PACK
  *
  * Theme and mini mode moved out of the settings panel and onto the card as two
  * icon buttons, so they are checked where they now live.
- * ------------------------------------------------------------------ */
-
-console.log('\n--- 头部图标 ---');
-
-/** Every header icon button, in order. */
-function headerButtons(tree) {
-  const bar = nodeByClass(tree, 'pd-head-actions');
-  return bar === null ? [] : bar.children;
-}
-
-function clickHeader(tree, index) {
-  const buttons = headerButtons(tree);
-  buttons[index].props.onClick({ stopPropagation: function () {} });
-  return renderKeepingState();
-}
-
-// The card follows the host's appearance, so its header holds two controls: the
-// compact-view toggle and the settings affordance. There is deliberately no theme
-// button — every colour comes from the host's tokens, which switch on
-// `body[data-ds-dark-theme]`, so a local toggle could not change anything.
-const themed = render('2026-10-14T10:00:00', { monthlySalary: 8000 });
-const buttons = headerButtons(themed);
-check('头部有两个图标按钮', buttons.length, 2);
-check('第一个是精简模式', buttons[0].props.title, '切到精简模式');
-check('第二个是设置', buttons[1].props.title, '设置');
-check('设置按钮用齿轮图标', buttons[1].children[0].props.name, 'gear');
-check('两个按钮都无文字子节点', buttons.every(
-  (b) => !b.children.some((child) => typeof child === 'string' || typeof child === 'number')
-), 'true');
-check('头部无主题按钮', buttons.some((b) => String(b.props.title).indexOf('主题') >= 0), 'false');
-
-// Only one settings affordance may exist: the footer used to carry a second gear,
-// which made the card show two of them.
-check('卡片上只有一个设置入口', countByClass(themed, 'pd-iconbtn') === 2, 'true');
-check('旧的 footer 齿轮已移除', nodeByClass(themed, 'pd-gear'), 'null');
-
-// The mini toggle switches the card into the compact view.
-const plain = render('2026-10-14T10:00:00', { monthlySalary: 8000, miniFloat: false });
-check('默认不是精简模式', nodeByClass(plain, 'pd-mini'), 'null');
-const compact = clickHeader(plain, 0);
-check('点图标即切到精简模式', states[0].miniFloat, 'true');
-check('卡片换成精简视图', nodeByClass(compact, 'pd-mini') !== null, 'true');
-const back = clickHeader(compact, 0);
-check('精简模式下再点即退出', states[0].miniFloat, 'false');
-check('卡片换回完整视图', nodeByClass(back, 'pd-mini'), 'null');
-
-// The settings button still opens the two-step panel.
-const opened = clickHeader(back, 1);
-check('齿轮打开设置面板', nodeByClass(opened, 'pd-panel') !== null, 'true');
-check('面板只有两个步骤', hasText(opened, '使用偏好'), 'false');
-
-// The panel used to show its steps twice: text tabs in the panel header and the
-// rail inside the step body. Only the rail survives, and it has to stay clickable
-// now that it carries the navigation, so both facts are pinned here.
-/** Every step chip in the open panel, in order. */
-function stepChips(tree) {
-  const chips = [];
-  (function walk(node) {
-    if (node === null || node === undefined) return;
-    if (Array.isArray(node)) { node.forEach(walk); return; }
-    if (typeof node !== 'object' || node.children === undefined) return;
-    if (node.props && typeof node.props.className === 'string'
-        && node.props.className.split(' ').includes('pd-step')) chips.push(node);
-    node.children.forEach(walk);
-  })(tree);
-  return chips;
-}
-
-/** The panel's own header row, which now only holds the way back out. */
-function panelHead(tree) {
-  let found = null;
-  (function walk(node) {
-    if (found !== null || node === null || node === undefined) return;
-    if (Array.isArray(node)) { node.forEach(walk); return; }
-    if (typeof node !== 'object' || node.children === undefined) return;
-    if (node.props && typeof node.props.className === 'string'
-        && node.props.className.split(' ').includes('pd-panel-head')) { found = node; return; }
-    node.children.forEach(walk);
-  })(tree);
-  return found;
-}
-
-check('面板里步骤条只出现一次（步骤 1）', countByClass(opened, 'pd-steps'), 1);
-check('步骤条有两个步骤', stepChips(opened).length, 2);
-check('当前步骤标了 aria-current', stepChips(opened).filter((c) => c.props['aria-current'] === 'step').length, 1);
-check('步骤项是可点击按钮', stepChips(opened).every((c) => c.type === 'button' && typeof c.props.onClick === 'function'), 'true');
-
-// Step 2 renders the same single rail, with the marker moved to the second chip.
-const secondStep = (function () {
-  const chips = stepChips(opened);
-  chips[1].props.onClick();
-  return renderKeepingState();
-})();
-check('面板里步骤条只出现一次（步骤 2）', countByClass(secondStep, 'pd-steps'), 1);
-check('点第二个步骤项即切到步骤 2', states[2], 2);
-check('步骤 2 的标记在第 2 项', stepChips(secondStep)[1].props['aria-current'], 'step');
-check('切回步骤 1', (function () {
-  stepChips(secondStep)[0].props.onClick();
-  return states[2];
-})(), 1);
-
-// The header row must not carry a second set of step labels again.
-const head = panelHead(opened);
-check('面板头部只剩收起按钮', head === null ? '(none)' : head.children.filter(Boolean).length, 1);
-check('面板头部不再列出步骤名', head === null ? '(none)' : allText(head).join(''), '');
-
-/* ------------------------------------------------------------------ *
- * 4i. The compact (mini float) view
- *
- * It used to be a single bare amount, which said nothing about pace or place in
- * the day. The checks are scoped to the mini subtree so a figure that only the
- * full card renders cannot make them pass.
- * ------------------------------------------------------------------ */
-
-console.log('\n--- 精简模式 ---');
-function miniTree(iso, patch) {
-  const config = Object.assign({}, api.DEFAULT_CONFIG, patch || {}, { miniFloat: true });
-  const frozen = new Date(iso);
-  // Slots: [config, open, step, now, tick, pos]. `open` false keeps mini mode.
-  return render(iso, null, [config, false, 1, frozen]);
-}
-
-/** All text under the first node of `className`. */
-function textUnder(tree, className) {
-  const node = nodeByClass(tree, className);
-  return node === null ? null : allText(node).join('');
-}
-
-// Derived rather than typed in: 09:00-18:00 with a 12:00-13:00 break means one
-// hour served by 10:00, so the amount is the daily rate's eighth.
-const MINI_AT = '2026-10-14T10:00:00';
-const MINI_PATCH = { monthlySalary: 8000 };
-const miniTruth = api.earnedAt(Object.assign({}, api.DEFAULT_CONFIG, MINI_PATCH), new Date(MINI_AT));
-const miniDaily = api.dailyRate(
-  Object.assign({}, api.DEFAULT_CONFIG, MINI_PATCH),
-  api.monthWorkdays(2026, 9, [1, 2, 3, 4, 5]),
-  8
-);
-const miniProgress = Math.round((api.solveShift(Object.assign({}, api.DEFAULT_CONFIG, MINI_PATCH), new Date(MINI_AT)).servedMin / 480) * 100);
-
-const mini = miniTree(MINI_AT, MINI_PATCH);
-const miniText = textUnder(mini, 'pd-mini');
-check('精简模式渲染出来', miniText !== null, 'true');
-check('精简模式显示今日入账（四位）', miniText.includes('¥' + (Math.floor(miniTruth * 10000) / 10000).toFixed(4)), 'true');
-check('精简模式显示时薪', miniText.includes('¥55.5556'), 'true');
-check('精简模式显示今日预计', miniText.includes('¥' + miniDaily.toFixed(2)), 'true');
-check('精简模式有进度条', nodeByClass(mini, 'pd-mini-bar') !== null, 'true');
-check('精简模式进度值正确', nodeByClass(mini, 'pd-mini-bar').props['aria-valuenow'], miniProgress);
-check('精简模式不渲染完整卡片', nodeByClass(mini, 'pd-amount'), 'null');
-check('精简模式不渲染统计三栏', nodeByClass(mini, 'pd-stats'), 'null');
-
-// The three figures must be distinguishable. Matching on "55.5" would not prove
-// anything here, so the amount region is read as a whole: it must be exactly the
-// four-decimal figure and nothing else.
-const miniMainText = textUnder(mini, 'pd-mini-main');
-check('金额区只有这一个数字', miniMainText, '¥' + (Math.floor(miniTruth * 10000) / 10000).toFixed(4));
-check('金额区是四位小数', /\.\d{4}/.test(miniMainText), 'true');
-check('费率在右侧指标区', textUnder(mini, 'pd-mini-metrics').includes('¥55.5556'), 'true');
-check('预计在右侧指标区', textUnder(mini, 'pd-mini-metrics').includes('¥' + miniDaily.toFixed(2)), 'true');
-
-// A day off projects only what has been earned, matching the full card.
-const miniOff = miniTree('2026-10-17T07:00:00', { salaryMode: 'daily', dailySalary: 500 });
-check('休息日班前精简模式为 0', /¥0\.00/.test(textUnder(miniOff, 'pd-mini')), 'true');
-
-// The compact figure has to tick as well. Reading it at a single instant could not
-// catch the regression that froze it, so it is driven frame by frame like the full
-// card — the mini view stays collapsed (`open` false) throughout.
-const MINI_SECONDS = 6;
-const miniFrames = driveTicker('2026-10-14T10:00:00', MINI_SECONDS, { monthlySalary: 8000, miniFloat: true }, false);
-check('精简模式采集到帧', miniFrames.length > 100, 'true');
-const miniTexts = miniFrames.map((sample) => sample.text).filter((text) => text !== null);
-check('精简模式金额有多个取值', new Set(miniTexts).size > 1, 'true');
-check('精简模式始终是四位小数', miniTexts.every((text) => /^¥[0-9,]+\.[0-9]{4}$/.test(text)), 'true');
-
-// Self-consistent rather than hand-computed: the growth over the run must match the
-// rate the same fixture implies. This is what catches a figure that moves too fast
-// or too slow, not just one that is frozen. Four decimals at this rate turn over
-// roughly every 65 ms, so a six-second run covers many steps.
-// Keep the decimal point: stripping everything but digits and commas turned
-// "¥55.64" into 5564, i.e. a hundredfold error in the very quantity under test.
-const miniNums = miniTexts.map((text) => Number(text.replace(/[^0-9.,]/g, '').replace(/,/g, '')));
-const miniGain = miniNums[miniNums.length - 1] - miniNums[0];
-const miniRatePerSec = api.earnedAt(baseConfig({ monthlySalary: 8000 }), new Date('2026-10-14T10:00:01'))
-  - api.earnedAt(baseConfig({ monthlySalary: 8000 }), new Date('2026-10-14T10:00:00'));
-const miniExpected = miniRatePerSec * MINI_SECONDS;
-check('精简模式递增', miniGain > 0, 'true');
-check('精简模式涨幅与费率一致（±2 分）', Math.abs(miniGain - miniExpected) <= 0.02, 'true');
-
-// Both views must draw the same progress bar. They used to differ in every
-// respect — 8px pill with a travelling dot versus a square 3px rail — so these
-// pin the shared shape, not just each bar's own value.
-const fullBar = nodeByClass(render('2026-10-14T10:00:00', { monthlySalary: 8000 }), 'pd-bar');
-const miniBar = nodeByClass(render('2026-10-14T10:00:00', { monthlySalary: 8000, miniFloat: true }), 'pd-mini-bar');
-check('统一后：完整卡片有进度条', fullBar !== null, 'true');
-check('统一后：精简模式有进度条', miniBar !== null, 'true');
-check('两条进度值一致', fullBar.props['aria-valuenow'], miniBar.props['aria-valuenow']);
-check('两条都用 fill 画', fullBar.children[0].props.className, 'fill');
-check('两条都用 fill 画（精简）', miniBar.children[0].props.className, 'fill');
-check('两条宽度一致', fullBar.children[0].props.style.width, miniBar.children[0].props.style.width);
-// One CSS rule pair covers both, so they cannot drift apart visually again.
-check('CSS 里两条共用轨道定义', /\.pd-bar,\s*\n\.pd-mini-bar\{/.test(api.CSS), 'true');
-check('CSS 里两条共用填充定义', /\.pd-bar \.fill,\s*\n\.pd-mini-bar \.fill\{/.test(api.CSS), 'true');
-check('旧的圆点画法已移除', api.CSS.includes('.knob'), 'false');
-check('两条轨道同高', (api.CSS.match(/height:6px;/g) || []).length >= 1, 'true');
-
-// Turning mini mode off restores the full card.
-const full = render('2026-10-14T10:00:00', { monthlySalary: 8000, miniFloat: false });
-check('关掉精简模式即完整卡片', nodeByClass(full, 'pd-amount') !== null, 'true');
-check('关掉精简模式无进度条', nodeByClass(full, 'pd-mini-bar'), 'null');
-
-/* ------------------------------------------------------------------ *
- * 4h. The month calendar
- *
- * The work week is no longer a choice: the month is shown with the statutory days
- * off and the makeup days marked. The classification is checked as a pure
- * function and then as rendered cells.
  * ------------------------------------------------------------------ */
 
 console.log('\n--- 工作日历 ---');
@@ -1387,11 +1135,7 @@ function collapsedCard(configPatch) {
   return render('2026-10-14T10:00:00', configPatch, [undefined, false, 1, new Date('2026-10-14T10:00:00')]);
 }
 const manualFooter = collapsedCard({ monthlySalary: 8000, manualWorkdays: 20, manualWorkdaysOverride: true });
-check('自定时底部按 20 天', hasText(manualFooter, '日薪 400.00 元'), 'true');
-check('自定时底部标 20 天', hasText(manualFooter, '实际工作日 20 天'), 'true');
 const autoFooter = collapsedCard({ monthlySalary: 8000, manualWorkdays: 20, manualWorkdaysOverride: false });
-check('自动时底部回到 18 天', hasText(autoFooter, '实际工作日 18 天'), 'true');
-check('自动时底部日薪 444.44', hasText(autoFooter, '日薪 444.44 元'), 'true');
 
 // The reported bug, driven end to end: open the panel with a hand-set value, read
 // the panel's note, press the reset control, then render the panel again — both

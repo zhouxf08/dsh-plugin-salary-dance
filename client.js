@@ -25,33 +25,10 @@ window.__ModuleLoader__.load({
 		const STORAGE_KEY = PACKAGE_NAME + '/config.v1';
 		// Card position is remembered separately: it changes while dragging, so it must
 		// not rewrite the whole config on every pointer move.
-		const POS_KEY = PACKAGE_NAME + '/pos.v1';
-		const DEFAULT_POS = { left: 12, bottom: 16 };
+		// The ticker lives in the sidebar's own footer row, not in a floating window.
+		const SIDEBAR_SLOT = 'sidebar.footer.action';
+		const PANEL_WIDTH = 320;
 
-		/** Keep the card inside the window, whatever a stored position claims. */
-		function clampPos(pos) {
-			const w = window.innerWidth || 1280;
-			const h = window.innerHeight || 800;
-			const left = Math.min(Math.max(Number(pos && pos.left) || 0, 4), Math.max(4, w - 160));
-			// Either edge is acceptable: the default sits on the bottom edge so the card
-			// is clear of the conversation list, and dragging switches it to a top edge.
-			if (pos && pos.bottom != null) {
-				return { left: left, bottom: Math.min(Math.max(Number(pos.bottom) || 0, 8), Math.max(8, h - 80)) };
-			}
-			return { left: left, top: Math.min(Math.max(Number(pos && pos.top) || 0, 28), Math.max(28, h - 120)) };
-		}
-
-		function loadPos() {
-			try {
-				const raw = window.localStorage.getItem(POS_KEY);
-				if (raw) return clampPos(JSON.parse(raw));
-			} catch (error) { /* fall through to the default */ }
-			return DEFAULT_POS;
-		}
-
-		function savePos(pos) {
-			try { window.localStorage.setItem(POS_KEY, JSON.stringify(pos)); } catch (error) { /* not fatal */ }
-		}
 
 		/* ------------------------------------------------------------------ *
 		 * Statutory holiday calendar (mainland China)
@@ -307,7 +284,7 @@ window.__ModuleLoader__.load({
 			['startTime', 'endTime', 'lunchStart', 'lunchEnd'].forEach(function (key) {
 				if (!isClockString(merged[key])) merged[key] = DEFAULT_CONFIG[key];
 			});
-			['lunchEnabled', 'miniFloat'].forEach(function (key) {
+			['lunchEnabled'].forEach(function (key) {
 				merged[key] = merged[key] === true;
 			});
 			// Tri-state: anything that is not a real boolean falls back to the sentinel.
@@ -541,6 +518,34 @@ window.__ModuleLoader__.load({
 		 * ------------------------------------------------------------------ */
 
 		const CSS = `
+/* The ticker is a row inside the sidebar footer, not a floating card. */
+.pd-side{
+  width:100%; min-width:0; box-sizing:border-box;
+  padding:6px 10px 8px;
+  display:flex; flex-direction:column; gap:5px;
+}
+.pd-strip-btn{
+  display:flex; align-items:center; gap:8px;
+  width:100%; min-width:0;
+  border:0; background:transparent; padding:2px 0;
+  font-family:inherit; color:inherit; text-align:left; cursor:pointer;
+}
+.pd-strip-btn:focus-visible{ outline:2px solid var(--dsw-alias-state-business-primary,#4a90e2); outline-offset:2px; border-radius:6px; }
+.pd-strip-main{ display:flex; align-items:baseline; gap:1px; flex:0 0 auto; }
+.pd-strip-main .v{ font-size:15px; font-weight:700; font-variant-numeric:tabular-nums; letter-spacing:-.01em; }
+.pd-strip-main .sym{ font-size:11px; font-weight:600; opacity:.8; }
+.pd-strip-metrics{ margin-left:auto; display:flex; flex-direction:column; gap:1px; align-items:flex-end; min-width:0; }
+.pd-strip-metrics > div{ display:flex; align-items:baseline; gap:4px; }
+.pd-strip-metrics .k{ font-size:9px; color:var(--dsw-alias-label-tertiary,#8a9099); }
+.pd-strip-metrics b{ font-size:10px; font-weight:600; font-variant-numeric:tabular-nums; }
+.pd-strip-sub{
+  display:flex; gap:10px; flex-wrap:wrap;
+  font-size:9.5px; color:var(--dsw-alias-label-tertiary,#8a9099);
+  font-variant-numeric:tabular-nums;
+}
+/* The settings panel is the only thing that floats, and only while open. */
+.pd-panel-pop{ position:fixed; z-index:2147483000; width:320px; display:flex; flex-direction:column; }
+.pd-card-panel{ width:100%; max-height:100%; overflow-y:auto; }
 .pd-root{
   position:fixed;
   z-index:40;
@@ -1489,9 +1494,8 @@ window.__ModuleLoader__.load({
 			const [step, setStep] = React.useState(1);
 			const [now, setNow] = React.useState(function () { return new Date(); });
 			const [tick, setTick] = React.useState(0);
-			const [pos, setPos] = React.useState(loadPos);
-			const rootRef = React.useRef(null);
-			const dragRef = React.useRef(null);
+			const [anchor, setAnchor] = React.useState(null);
+			const stripRef = React.useRef(null);
 			const rafRef = React.useRef(null);
 			// Latest per-frame price of this instant; `null` until the first frame, which
 			// is how the renderer knows to fall back to the heartbeat's reading.
@@ -1616,59 +1620,22 @@ window.__ModuleLoader__.load({
 
 			/* -------- dragging -------- */
 
-			function onPointerDown(event) {
-				if (event.button !== 0) return;
-				const node = rootRef.current;
-				if (node === null) return;
-				const rect = node.getBoundingClientRect();
-				dragRef.current = {
-					pointerId: event.pointerId,
-					startX: event.clientX,
-					startY: event.clientY,
-					originLeft: rect.left,
-					originTop: rect.top,
-					width: rect.width,
-					height: rect.height
-				};
-				if (typeof event.currentTarget.setPointerCapture === 'function') {
-					event.currentTarget.setPointerCapture(event.pointerId);
-				}
-			}
-
-			function onPointerMove(event) {
-				const drag = dragRef.current;
-				if (drag === null || drag.pointerId !== event.pointerId) return;
-				const nextRight = drag.originRight - (event.clientX - drag.startX);
-				const nextTop = drag.originTop + (event.clientY - drag.startY);
-				setPos({
-					right: Math.min(Math.max(nextRight, 4), Math.max(4, window.innerWidth - drag.width - 4)),
-					top: Math.min(Math.max(nextTop, 28), Math.max(28, window.innerHeight - drag.height - 4))
-				});
-			}
-
-			function onPointerUp(event) {
-				const drag = dragRef.current;
-				if (drag === null || drag.pointerId !== event.pointerId) return;
-				dragRef.current = null;
-				// Remember where it was dropped so the next page load keeps it there —
-				// that is what makes the left-hand default safe to live with.
-				setPos(function (current) { savePos(current); return current; });
-				if (typeof event.currentTarget.releasePointerCapture === 'function') {
-					try { event.currentTarget.releasePointerCapture(event.pointerId); } catch (error) { /* already released */ }
-				}
-			}
 
 			/* -------- chrome -------- */
 
-			const rootProps = {
-				className: 'pd-root',
-				ref: rootRef,
-				'data-raised': 'true',
-				'data-mini': config.miniFloat && !open ? 'true' : undefined,
-				style: pos.bottom != null
-					? { left: pos.left + 'px', bottom: pos.bottom + 'px' }
-					: { left: pos.left + 'px', top: pos.top + 'px' }
-			};
+			// The settings panel is the only thing that still floats, and only while it is
+			// open: it lifts out of the sidebar footer so the calendar is not squeezed.
+			function panelStyle() {
+				const viewportWidth = window.innerWidth || 1024;
+				const viewportHeight = window.innerHeight || 768;
+				const rect = anchor;
+				const left = rect
+					? Math.min(Math.max(rect.left, 8), Math.max(8, viewportWidth - PANEL_WIDTH - 8))
+					: 12;
+				const bottom = rect ? Math.max(8, viewportHeight - rect.top + 8) : 72;
+				const maxHeight = rect ? Math.max(200, rect.top - 24) : 520;
+				return { left: left + 'px', bottom: bottom + 'px', maxHeight: maxHeight + 'px' };
+			}
 
 			// One place for the card-level controls. The status wording ("正在上班") and a
 			// theme toggle both used to sit here: the wording duplicated the progress bar,
@@ -1685,27 +1652,6 @@ window.__ModuleLoader__.load({
 					onClick: function (event) { event.stopPropagation(); onClick(); }
 				}, h(Icon, { name: name, size: 13 }));
 			}
-
-			const header = h(
-				'div',
-				{
-					className: 'pd-head',
-					onPointerDown: onPointerDown,
-					onPointerMove: onPointerMove,
-					onPointerUp: onPointerUp,
-					onPointerCancel: onPointerUp
-				},
-				h('span', { className: 'pd-dot' }),
-				h('span', { className: 'pd-title' }, '薪跳 SalaryDance'),
-				h('span', { className: 'pd-head-actions' },
-					(!open && config.miniFloat)
-						? iconButton('window', t('tip.miniOff'), function () { update({ miniFloat: false }); }, true)
-						: (!open ? iconButton('window', t('tip.miniOn'), function () { update({ miniFloat: true }); }, false) : null),
-					open
-						? iconButton('close', t('action.collapse'), function () { setOpen(false); setStep(1); }, false)
-						: iconButton('gear', t('action.configure'), function () { setOpen(true); setStep(1); }, false)
-				)
-			);
 
 			function spanConn() {
 				return h('span', { className: 'pd-conn' });
@@ -1949,64 +1895,9 @@ window.__ModuleLoader__.load({
 				);
 			}
 
-			if (config.miniFloat && !open) {
-				// The compact view shows the three figures that explain a workday —
-				// how much, how fast, and where the day lands — plus a rail for how
-				// much of the shift is left. A bare amount answered none of them.
-				return h(
-					'div',
-					rootProps,
-					h('div', { className: 'pd-card pd-card-mini' },
-						header,
-						h('div', {
-							className: 'pd-mini',
-							onClick: function () { setOpen(true); },
-							role: 'button',
-							tabIndex: 0,
-							onKeyDown: function (event) {
-								if (event.key === 'Enter' || event.key === ' ') {
-									event.preventDefault();
-									setOpen(true);
-								}
-							}
-						},
-							h(Avatar, { mode: avatarMode }),
-							h('span', { className: 'pd-mini-main' },
-								h('span', { className: 'sym' }, '¥'),
-								h('span', { className: 'v' }, groupMoney(formatMoney(Math.floor(shownEarned * 10000) / 10000, 4)))
-							),
-							// Without this the compact view just looks stuck during the break.
-							shift.onBreak
-								? h('span', { className: 'pd-break', title: breakHint() }, t('stat.onBreak'))
-								: null,
-							h('div', { className: 'pd-mini-metrics' },
-								h('div', null,
-									h('span', { className: 'k' }, t('stat.rate')),
-									h('b', null, '¥' + hourlyText)
-								),
-								h('div', null,
-									h('span', { className: 'k' }, t('stat.projected')),
-									h('b', null, '¥' + formatMoney(shownProjected))
-								)
-							)
-						),
-						h('div', {
-							className: 'pd-mini-bar',
-							role: 'progressbar',
-							'aria-valuemin': 0,
-							'aria-valuemax': 100,
-							'aria-valuenow': Math.round(progress * 100),
-							'aria-label': t('stat.progress')
-						}, h('span', {
-							className: 'fill',
-							style: { width: (progress * 100).toFixed(2) + '%' }
-						}))
-					)
-				);
-			}
-
-			const cardBody = open
-				? h('div', null,
+			// Only the settings panel is built here; the ticker itself is the strip in
+			// the sidebar footer, always present.
+			const panelBody = h('div', null,
 						// The step names live in the rail inside the panel; this row only
 						// carries the way back out, so nothing is said twice.
 						h('div', { className: 'pd-panel-head' },
@@ -2038,64 +1929,76 @@ window.__ModuleLoader__.load({
 							)
 						)
 					)
-				: h('div', { className: 'pd-body' },
-						h('div', { className: 'pd-caption' },
-							h('span', null, t('caption.today')),
-							shift.onBreak
-								? h('span', { className: 'pd-break', title: breakHint() }, t('stat.onBreak'))
-								: null,
-							h('span', { className: 'pd-caprate' }, '¥' + hourlyText + '/' + t('unit.hour'))
+				;
+
+			const stripMetrics = props.wide === false
+				? null
+				: h('div', { className: 'pd-strip-metrics' },
+						h('div', null,
+							h('span', { className: 'k' }, t('stat.rate')),
+							h('b', null, '¥' + hourlyText)
 						),
-						h('div', { className: 'pd-amount', 'aria-live': 'off' },
-							h('span', { className: 'sym' }, '¥'),
-							h('span', { className: 'int' }, groupMoney(moneyParts[0])),
-							h('span', { className: 'frac' }, '.' + moneyParts[1])
-						),
-						h('div', { className: 'pd-stats' },
-							stat(t('stat.worked'), served.hours + ' h ' + served.minutes + ' m'),
-							stat(t('stat.remaining'), remaining.hours + ' h ' + remaining.minutes + ' m'),
-							stat(t('stat.projected'), '¥' + formatMoney(shownProjected))
-						),
-						h('div', {
-							className: 'pd-bar',
-							role: 'progressbar',
-							'aria-valuemin': 0,
-							'aria-valuemax': 100,
-							'aria-valuenow': Math.round(progress * 100),
-							'aria-label': t('stat.progress')
-						}, h('span', {
-							className: 'fill',
-							style: { width: (progress * 100).toFixed(2) + '%' }
-						})),
-						// The projection is worth trusting only if it says what it is
-						// projecting over, so the footer names the month and its actual
-						// working-day count rather than only an amount. The settings
-						// affordance lives in the header with the other card controls.
-						h('div', { className: 'pd-foot-row' },
-							h('div', { className: 'pd-rate pd-foot' },
-								h('span', null, t('foot.monthTotal')),
-								h('span', { className: 'b' }, '¥' + formatMoney(pay.monthTotal))
-							)
-						),
-						h('div', { className: 'pd-foot-meta' },
-							h(Icon, { name: 'calendar', size: 11 }),
-							h('span', { className: 'lead' },
-								t('foot.basisDate')
-									.replace('{year}', String(now.getFullYear()))
-									.replace('{month}', String(now.getMonth() + 1))
-							),
-							h('span', null, t('foot.basisDays')
-								.replace('{days}', String(pay.workdays))
-								.replace('{unit}', t('unit.days'))
-							),
-							h('span', null, t('foot.basisDaily')
-								.replace('{amount}', formatMoney(basisDaily))
-								.replace('{unit}', t('unit.yuan'))
-							)
+						h('div', null,
+							h('span', { className: 'k' }, t('stat.projected')),
+							h('b', null, '¥' + formatMoney(shownProjected))
 						)
 					);
 
-			return h('div', rootProps, h('div', { className: 'pd-card' }, header, cardBody));
+			function openPanel() {
+				const node = stripRef.current;
+				if (node !== null && typeof node.getBoundingClientRect === 'function') {
+					setAnchor(node.getBoundingClientRect());
+				}
+				setOpen(true);
+				setStep(1);
+			}
+
+			const strip = h(
+				'div',
+				{ className: 'pd-strip', ref: stripRef },
+				h(
+					'button',
+					{
+						type: 'button',
+						className: 'pd-strip-btn',
+						title: t('action.configure'),
+						onClick: openPanel
+					},
+					h(Avatar, { mode: avatarMode }),
+					h('span', { className: 'pd-strip-main' },
+						h('span', { className: 'sym' }, '¥'),
+						h('span', { className: 'v' }, groupMoney(formatMoney(Math.floor(shownEarned * 10000) / 10000, 4)))
+					),
+					shift.onBreak
+						? h('span', { className: 'pd-break', title: breakHint() }, t('stat.onBreak'))
+						: null,
+					stripMetrics
+				),
+				props.wide === false
+					? null
+					: h('div', { className: 'pd-strip-sub' },
+							h('span', null, t('stat.worked') + ' ' + served.hours + ' h ' + served.minutes + ' m'),
+							h('span', null, t('stat.remaining') + ' ' + remaining.hours + ' h ' + remaining.minutes + ' m')
+						),
+				h('div', {
+					className: 'pd-mini-bar',
+					role: 'progressbar',
+					'aria-valuemin': 0,
+					'aria-valuemax': 100,
+					'aria-valuenow': Math.round(progress * 100),
+					'aria-label': t('stat.progress')
+				}, h('span', {
+					className: 'fill',
+					style: { width: (progress * 100).toFixed(2) + '%' }
+				}))
+			);
+
+			const panel = open
+				? h('div', { className: 'pd-panel-pop', style: panelStyle() },
+						h('div', { className: 'pd-card pd-card-panel' }, panelBody))
+				: null;
+
+			return h('div', { className: 'pd-side' }, strip, panel);
 		}
 
 		/* ------------------------------------------------------------------ *
@@ -2123,8 +2026,6 @@ window.__ModuleLoader__.load({
 				'action.back': '上一步',
 				'action.done': '完成配置，开始使用',
 				'action.collapse': '收起',
-				'tip.miniOn': '切到精简模式',
-				'tip.miniOff': '退出精简模式',
 				'foot.monthTotal': '本月预计',
 				'foot.basisDate': '{year}年{month}月',
 				'foot.basisDays': '实际工作日 {days} {unit}',
@@ -2194,8 +2095,6 @@ window.__ModuleLoader__.load({
 				'action.back': 'Back',
 				'action.done': 'Finish and start',
 				'action.collapse': 'Collapse',
-				'tip.miniOn': 'Switch to the compact view',
-				'tip.miniOff': 'Leave the compact view',
 				'foot.monthTotal': 'Month estimate',
 				'foot.basisDate': '{month}/{year}',
 				'foot.basisDays': '{days} working {unit}',
@@ -2257,12 +2156,11 @@ window.__ModuleLoader__.load({
 				}, 'salarydance: dictionaries');
 			}
 
-			ctx.slots.inject('shell.overlay', function () {
+			ctx.slots.inject(SIDEBAR_SLOT, function () {
 				return ctx.slots.register(
 					{
-						name: 'shell.overlay',
+						name: SIDEBAR_SLOT,
 						id: ROW_ID,
-						order: 5,
 						locale: NS,
 						inject: function () { return { frame: 'salarydance' }; }
 					},
@@ -2279,10 +2177,8 @@ window.__ModuleLoader__.load({
 			CSS: CSS,
 			ROW_ID: ROW_ID,
 			PACKAGE_NAME: PACKAGE_NAME,
-			POS_KEY: POS_KEY,
-			DEFAULT_POS: DEFAULT_POS,
+			SIDEBAR_SLOT: SIDEBAR_SLOT,
 			Avatar: Avatar,
-			clampPos: clampPos,
 			STORAGE_KEY: STORAGE_KEY,
 			ICON_PATHS: PATHS,
 			DICTIONARIES: DICTIONARIES,
