@@ -664,12 +664,12 @@ check('动画比原来更快', /animation:pd-bob \.32s/.test(api.CSS), 'true');
 check('动作幅度更大', /translateY\(5px\)/.test(api.CSS) && /rotate\(-14deg\)/.test(api.CSS), 'true');
 // Character registry: adding one entry is all it takes to add a character.
 check('角色注册表有两个角色', api.AVATARS.length, 2);
-check('角色 id 可查', api.AVATARS.map((a) => a.id).join(','), 'dribble,burger');
+check('角色 id 可查', api.AVATARS.map((a) => a.id).join(','), 'hoop,burger');
 check('每个角色都能画出来', api.AVATARS.every((a) => a.draw().length > 3), 'true');
-check('运球角色有球', JSON.stringify(api.AVATARS[0].draw()).includes('moving ball'), 'true');
+check('篮球舞角色有球', JSON.stringify(api.AVATARS[0].draw()).includes('moving ball'), 'true');
 check('吃汉堡角色有汉堡', JSON.stringify(api.AVATARS[1].draw()).includes('moving burger'), 'true');
 check('按 kind 取到对应角色', api.drawAvatar('burger').id, 'burger');
-check('未知 kind 回退到第一个', api.drawAvatar('nope').id, 'dribble');
+check('未知 kind 回退到第一个', api.drawAvatar('nope').id, 'hoop');
 check('svg 标出当前角色', api.Avatar({ mode: 'work', kind: 'burger' }).props['data-kind'], 'burger');
 // Hover must actually change the rendered character.
 const before = render('2026-10-14T14:00:00', { monthlySalary: 8000 });
@@ -689,7 +689,7 @@ const kindOf = (tree) => {
   })(tree);
   return found;
 };
-check('默认形象是运球', kindOf(before), 'dribble');
+check('默认形象是篮球舞', kindOf(before), 'hoop');
 check('点头像换成另一个形象', kindOf(after), 'burger');
 check('头像可点击换形象', typeof nodeByClass(before, 'pd-avatar-btn').props.onClick, 'function');
 check('头像按钮不打开面板', nodeByClass(before, 'pd-avatar-btn').props.title, '换一个形象');

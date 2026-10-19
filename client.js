@@ -1096,21 +1096,25 @@ window.__ModuleLoader__.load({
 		 */
 		const AVATARS = [
 			{
-				id: 'dribble',
-				label: '运球',
+				id: 'hoop',
+				label: '篮球舞',
 				draw: function () {
+					// A stylised basketball-dance pose: one knee up, torso leaning, ball
+					// spun out on one hand. It is an original silhouette — the gag is the
+					// pose, not a likeness of anyone.
 					return [
-						// crouched: head low and forward, ball at the ground
-						h('circle', { cx: 13.6, cy: 9.6, r: 3.0 }),
-						h('path', { d: 'M12.9 12.7 C10.4 13.3 8.6 15.0 8.0 17.4 L7.4 19.6 C7.2 20.4 7.7 21.1 8.5 21.2 L10.9 21.5 C11.9 21.6 12.8 20.9 12.9 19.9 L13.6 16.2 C14.1 14.7 14.0 13.4 12.9 12.7 Z' }),
-						// front leg, planted
-						h('path', { d: 'M9.0 21.4 L6.8 26.9 C6.5 27.6 7.0 28.2 7.7 28.2 L8.7 28.2 C9.3 28.2 9.8 27.8 9.9 27.2 L10.8 22.0 Z' }),
-						// back leg, trailing
-						h('path', { d: 'M12.6 21.6 L18.2 24.6 C18.9 25.0 19.1 25.8 18.7 26.5 C18.3 27.1 17.5 27.3 16.9 26.9 L11.7 23.8 Z' }),
-						// the hand on the ball
-						h('path', { className: 'moving arm', d: 'M11.6 14.6 L16.6 17.9 C17.3 18.3 17.4 19.1 17.0 19.7 C16.6 20.3 15.9 20.5 15.3 20.1 L10.6 17.1 Z' }),
-						// ball, right at the floor
-						h('circle', { className: 'moving ball', cx: 19.4, cy: 24.4, r: 2.9 })
+						// head, tipped back a little
+						h('circle', { cx: 15.4, cy: 6.4, r: 3.0 }),
+						// torso, leaning away from the raised knee
+						h('path', { d: 'M15.0 9.8 C12.6 10.0 11.2 11.6 11.0 13.9 L10.6 18.6 C10.5 19.8 11.3 20.8 12.5 20.9 L15.2 21.1 C16.3 21.2 17.3 20.4 17.4 19.3 L17.9 14.2 C18.1 12.0 17.1 9.9 15.0 9.8 Z' }),
+						// standing leg
+						h('path', { d: 'M11.4 20.9 L9.2 26.8 C9.0 27.5 9.5 28.1 10.2 28.1 L11.2 28.1 C11.8 28.1 12.3 27.7 12.4 27.1 L13.3 21.6 Z' }),
+						// raised knee
+						h('path', { d: 'M15.6 21.0 L21.6 22.8 C22.4 23.1 22.7 24.0 22.3 24.7 C21.9 25.4 21.0 25.6 20.3 25.2 L14.6 22.4 Z' }),
+						// arm out, ball spun on top
+						h('path', { className: 'moving arm', d: 'M16.6 12.8 L21.9 13.9 C22.7 14.1 23.2 14.8 23.0 15.6 C22.8 16.4 22.1 16.9 21.3 16.7 L15.9 15.5 Z' }),
+						// ball, out at the fingertips
+						h('circle', { className: 'moving ball', cx: 25.4, cy: 13.4, r: 2.7 })
 					];
 				}
 			},
