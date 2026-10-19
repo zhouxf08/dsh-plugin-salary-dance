@@ -692,7 +692,7 @@ const kindOf = (tree) => {
 check('hover 前是运球', kindOf(before), 'dribble');
 check('hover 后换成另一个', kindOf(after), 'burger');
 check('状态条按钮绑了 hover', typeof nodeByClass(before, 'pd-strip-btn').props.onPointerEnter, 'function');
-check('午休时动画变慢', /\.pd-avatar\.slow \.ball,[\s\S]{0,120}animation-duration:1\.8s/.test(api.CSS), 'true');
+check('午休时动画变慢', /\.pd-avatar\.slow \.ball,[\s\S]{0,120}animation-duration:1\.3s/.test(api.CSS), 'true');
 check('下班后动画暂停', /\.pd-avatar\.off \.ball,[\s\S]{0,80}animation-play-state:paused/.test(api.CSS), 'true');
 check('尊重 prefers-reduced-motion', /prefers-reduced-motion: reduce\)[\s\S]{0,80}\.pd-avatar \.ball/.test(api.CSS), 'true');
 
