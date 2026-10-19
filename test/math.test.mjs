@@ -567,7 +567,9 @@ const placedRoot = nodeByClass(placed, 'pd-root');
 check('默认按 left 锚定', Object.prototype.hasOwnProperty.call(placedRoot.props.style, 'left'), 'true');
 check('不再按 right 锚定', Object.prototype.hasOwnProperty.call(placedRoot.props.style, 'right'), 'false');
 check('默认位置 left', placedRoot.props.style.left, '12px');
-check('默认位置 top', placedRoot.props.style.top, '56px');
+// Bottom edge, not top: the card sits below the conversation list.
+check('默认贴底边', placedRoot.props.style.bottom, '16px');
+check('默认不用 top', Object.prototype.hasOwnProperty.call(placedRoot.props.style, 'top'), 'false');
 check('精简时打上 data-mini', placedRoot.props['data-mini'], 'true');
 check('完整视图不打 data-mini', nodeByClass(render('2026-10-14T14:00:00', { monthlySalary: 8000 }), 'pd-root').props['data-mini'], 'undefined');
 check('精简卡片比完整卡片窄', /\.pd-root\[data-mini="true"\] \.pd-card\{ width:236px; \}/.test(api.CSS), 'true');
@@ -576,6 +578,12 @@ check('精简卡片比完整卡片窄', /\.pd-root\[data-mini="true"\] \.pd-card
 check('位置夹在窗口内（右下越界）', JSON.stringify(api.clampPos({ left: 9999, top: 9999 })), JSON.stringify({ left: 1440 - 160, top: 900 - 120 }));
 check('位置夹在窗口内（负值）', JSON.stringify(api.clampPos({ left: -50, top: -50 })), JSON.stringify({ left: 4, top: 28 }));
 check('位置缺字段时不炸', JSON.stringify(api.clampPos(null)), JSON.stringify({ left: 4, top: 28 }));
+check('底边锚定也会被夹住', JSON.stringify(api.clampPos({ left: 9999, bottom: 9999 })), JSON.stringify({ left: 1440 - 160, bottom: 900 - 80 }));
+check('底边锚定负值', JSON.stringify(api.clampPos({ left: 0, bottom: -99 })), JSON.stringify({ left: 4, bottom: 8 }));
+check('拖动后切换成 top 锚定', (function () {
+  // 拖动写回的是 {left, top}，所以 clampPos 保留 top 而不是 bottom
+  return Object.prototype.hasOwnProperty.call(api.clampPos({ left: 100, top: 200 }), 'top');
+})(), 'true');
 check('位置单独存一个键', api.POS_KEY, 'dsh-plugin-salary-dance/pos.v1');
 
 // The avatar states the same thing the number does: paid → moving, break → slow,

@@ -38,9 +38,10 @@ DSH 把界面插件组织成 **bundle**：只要 npm 包在 `package.json` 里�
 
 ## 位置与头像
 
-- 卡片用 `left` / `top` 锚定，默认左上角（`{ left: 12, top: 56 }`）。位置存在
+- 卡片用 `left` 加 `top` 或 `bottom` 锚定。默认是**左下角**（`{ left: 12, bottom: 16 }`），
+  用底边锚定是为了窗口高度变化时它始终贴着底边；拖动后改写成 `{ left, top }`。位置存在
   `dsh-plugin-salary-dance/pos.v1`，**拖动结束才写一次**，不会每帧写 localStorage。
-  读回时用 `clampPos` 夹进当前窗口，窗口变小也不会跑到屏幕外。
+  读回时用 `clampPos` 夹进当前窗口，两种锚定各自夹住，窗口变小也不会跑到屏幕外。
 - 精简视图比完整视图窄（236 vs 296px）—— 它默认压在对话侧栏（280px）上，窄一点
   能少挡些内容。真正解决遮挡的是"拖动 + 记住位置"。
 - 头像 `Avatar({ mode })` 是一段内联 SVG，只用 `currentColor`，所以跟随宿主主题的

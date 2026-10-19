@@ -26,16 +26,19 @@ window.__ModuleLoader__.load({
 		// Card position is remembered separately: it changes while dragging, so it must
 		// not rewrite the whole config on every pointer move.
 		const POS_KEY = PACKAGE_NAME + '/pos.v1';
-		const DEFAULT_POS = { left: 12, top: 56 };
+		const DEFAULT_POS = { left: 12, bottom: 16 };
 
 		/** Keep the card inside the window, whatever a stored position claims. */
 		function clampPos(pos) {
 			const w = window.innerWidth || 1280;
 			const h = window.innerHeight || 800;
-			return {
-				left: Math.min(Math.max(Number(pos && pos.left) || 0, 4), Math.max(4, w - 160)),
-				top: Math.min(Math.max(Number(pos && pos.top) || 0, 28), Math.max(28, h - 120))
-			};
+			const left = Math.min(Math.max(Number(pos && pos.left) || 0, 4), Math.max(4, w - 160));
+			// Either edge is acceptable: the default sits on the bottom edge so the card
+			// is clear of the conversation list, and dragging switches it to a top edge.
+			if (pos && pos.bottom != null) {
+				return { left: left, bottom: Math.min(Math.max(Number(pos.bottom) || 0, 8), Math.max(8, h - 80)) };
+			}
+			return { left: left, top: Math.min(Math.max(Number(pos && pos.top) || 0, 28), Math.max(28, h - 120)) };
 		}
 
 		function loadPos() {
@@ -1662,7 +1665,9 @@ window.__ModuleLoader__.load({
 				ref: rootRef,
 				'data-raised': 'true',
 				'data-mini': config.miniFloat && !open ? 'true' : undefined,
-				style: { left: pos.left + 'px', top: pos.top + 'px' }
+				style: pos.bottom != null
+					? { left: pos.left + 'px', bottom: pos.bottom + 'px' }
+					: { left: pos.left + 'px', top: pos.top + 'px' }
 			};
 
 			// One place for the card-level controls. The status wording ("正在上班") and a
