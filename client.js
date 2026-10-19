@@ -744,14 +744,17 @@ window.__ModuleLoader__.load({
    Its motion is the state indicator: normal while paid, slow through lunch,
    stopped once the shift is over. */
 .pd-avatar{ display:block; flex:0 0 auto; color:var(--dsw-alias-label-secondary,#4a505a); }
-.pd-avatar .ball{ transform-box:fill-box; transform-origin:center; animation:pd-dribble .9s ease-in-out infinite; }
-.pd-avatar .arm{ transform-box:fill-box; transform-origin:0% 50%; animation:pd-swing .9s ease-in-out infinite; }
+.pd-avatar .ball,
+.pd-avatar .burger{ transform-box:fill-box; transform-origin:center; animation:pd-bob .45s ease-in-out infinite; }
+.pd-avatar .arm{ transform-box:fill-box; transform-origin:0% 50%; animation:pd-swing .45s ease-in-out infinite; }
 .pd-avatar.slow .ball,
-.pd-avatar.slow .arm{ animation-duration:3.2s; }
+.pd-avatar.slow .burger,
+.pd-avatar.slow .arm{ animation-duration:1.8s; }
 .pd-avatar.off .ball,
+.pd-avatar.off .burger,
 .pd-avatar.off .arm{ animation-play-state:paused; opacity:.45; }
-@keyframes pd-dribble{ 0%,100%{ transform:translateY(0) } 50%{ transform:translateY(3.4px) } }
-@keyframes pd-swing{ 0%,100%{ transform:rotate(0deg) } 50%{ transform:rotate(-9deg) } }
+@keyframes pd-bob{ 0%,100%{ transform:translateY(0) } 50%{ transform:translateY(5px) } }
+@keyframes pd-swing{ 0%,100%{ transform:rotate(0deg) } 50%{ transform:rotate(-14deg) } }
 @media (prefers-reduced-motion: reduce){
   .pd-avatar .ball, .pd-avatar .arm{ animation:none; }
 }
@@ -1078,37 +1081,78 @@ window.__ModuleLoader__.load({
 		};
 
 		/**
-		 * A small monochrome figure dribbling a ball. It is an original drawing, not a
-		 * likeness of anyone: the point is the *motion*, and that motion is how the card
-		 * shows whether you are being paid right now.
+		 * Animated monochrome characters. Each entry draws one figure in a 32x32 box
+		 * using only `currentColor`, so it follows the host's palette.
+		 *
+		 * Adding a character is one entry in this list — nothing else needs to change.
+		 * `moving` marks the element that carries the motion (ball, burger, …).
 		 */
+		const AVATARS = [
+			{
+				id: 'dribble',
+				label: '运球',
+				draw: function () {
+					return [
+						// head
+						h('circle', { cx: 11.4, cy: 7.0, r: 3.1 }),
+						// torso
+						h('path', { d: 'M11.4 10.5 C9.4 10.5 8.2 11.9 8.2 13.8 L8.2 18.2 C8.2 19.4 9.1 20.3 10.3 20.3 L12.5 20.3 C13.7 20.3 14.6 19.4 14.6 18.2 L14.6 13.8 C14.6 11.9 13.4 10.5 11.4 10.5 Z' }),
+						// back leg
+						h('path', { d: 'M9.4 20.1 L7.5 26.4 C7.3 27.2 7.8 27.8 8.6 27.8 L9.5 27.8 C10.1 27.8 10.6 27.4 10.7 26.8 L11.4 21.2 Z' }),
+						// front leg
+						h('path', { d: 'M13.5 20.1 L16.0 26.2 C16.2 27.0 15.7 27.6 14.9 27.6 L14.1 27.6 C13.5 27.6 13.0 27.2 12.9 26.6 L11.7 21.2 Z' }),
+						// the arm that works the ball
+						h('path', { className: 'moving arm', d: 'M13.3 13.4 L18.1 16.2 C18.8 16.5 19.0 17.3 18.7 17.9 C18.4 18.5 17.7 18.8 17.1 18.5 L12.4 15.9 Z' }),
+						// ball
+						h('circle', { className: 'moving ball', cx: 21.2, cy: 21.4, r: 2.85 })
+					];
+				}
+			},
+			{
+				id: 'burger',
+				label: '吃汉堡',
+				draw: function () {
+					return [
+						h('circle', { cx: 12.2, cy: 7.0, r: 3.1 }),
+						h('path', { d: 'M12.2 10.5 C10.2 10.5 9.0 11.9 9.0 13.8 L9.0 18.4 C9.0 19.6 9.9 20.5 11.1 20.5 L13.3 20.5 C14.5 20.5 15.4 19.6 15.4 18.4 L15.4 13.8 C15.4 11.9 14.2 10.5 12.2 10.5 Z' }),
+						h('path', { d: 'M10.2 20.3 L8.6 26.5 C8.4 27.3 8.9 27.9 9.7 27.9 L10.6 27.9 C11.2 27.9 11.7 27.5 11.8 26.9 L12.2 21.4 Z' }),
+						h('path', { d: 'M14.2 20.3 L16.1 26.3 C16.3 27.1 15.8 27.7 15.0 27.7 L14.2 27.7 C13.6 27.7 13.1 27.3 13.0 26.7 L12.5 21.4 Z' }),
+						// arm lifted to the mouth
+						h('path', { className: 'moving arm', d: 'M14.1 13.2 L17.4 10.2 C17.9 9.7 18.7 9.8 19.1 10.3 C19.5 10.8 19.4 11.6 18.9 12.0 L15.6 15.0 Z' }),
+						// burger, held up in front of the face
+						h('g', { className: 'moving burger' },
+							h('path', { d: 'M17.6 6.2 C17.6 5.0 19.9 5.0 19.9 6.2 Z' }),
+							h('rect', { x: 17.4, y: 6.6, width: 2.8, height: 1.2, rx: 0.5 }),
+							h('path', { d: 'M17.4 8.2 C17.4 9.2 19.9 9.2 19.9 8.2 Z' })
+						)
+					];
+				}
+			}
+		];
+
+		function drawAvatar(kind) {
+			const entry = AVATARS.filter(function (item) { return item.id === kind; })[0] || AVATARS[0];
+			return entry;
+		}
+
+		/** One character, animating. `kind` selects which; `speed` slows or stops it. */
 		function Avatar(props) {
+			const entry = drawAvatar(props.kind);
 			const mode = props.mode || 'work';
 			const cls = 'pd-avatar' + (mode === 'off' ? ' off' : mode === 'break' ? ' slow' : '');
 			return h(
 				'svg',
 				{
 					className: cls,
+					'data-kind': entry.id,
 					viewBox: '0 0 32 32',
 					width: 27,
 					height: 27,
 					'aria-hidden': 'true',
-					fill: 'none',
-					stroke: 'currentColor',
-					strokeWidth: 1.4,
-					strokeLinecap: 'round',
-					strokeLinejoin: 'round'
+					fill: 'currentColor',
+					stroke: 'none'
 				},
-				// head
-				h('circle', { cx: 12.5, cy: 8.2, r: 3 }),
-				// torso
-				h('path', { d: 'M12.5 11.2 V19' }),
-				// the arm that works the ball
-				h('path', { className: 'arm', d: 'M12.5 13.6 L18.8 16.2' }),
-				// legs
-				h('path', { d: 'M12.5 19 L10 24.8 M12.5 19 L15.4 24.2' }),
-				// the ball
-				h('circle', { className: 'ball', cx: 21.4, cy: 21.2, r: 2.6, fill: 'currentColor', stroke: 'none', opacity: 0.85 })
+				entry.draw()
 			);
 		}
 
@@ -1499,6 +1543,9 @@ window.__ModuleLoader__.load({
 			const [now, setNow] = React.useState(function () { return new Date(); });
 			const [tick, setTick] = React.useState(0);
 			const [anchor, setAnchor] = React.useState(null);
+			// Hovering advances to the next character, so every entry in AVATARS is
+			// reachable without adding any UI.
+			const [avatarIndex, setAvatarIndex] = React.useState(0);
 			const stripRef = React.useRef(null);
 			const rafRef = React.useRef(null);
 			// Latest per-frame price of this instant; `null` until the first frame, which
@@ -1966,13 +2013,16 @@ window.__ModuleLoader__.load({
 						type: 'button',
 						className: 'pd-strip-btn',
 						title: t('action.configure'),
-						onClick: openPanel
+						onClick: openPanel,
+						onPointerEnter: function () {
+							setAvatarIndex(function (index) { return (index + 1) % AVATARS.length; });
+						}
 					},
 					h('span', { className: 'pd-strip-main' },
 						h('span', { className: 'sym' }, '¥'),
 						h('span', { className: 'v' }, groupMoney(formatMoney(Math.floor(shownEarned * 10000) / 10000, 4)))
 					),
-					h(Avatar, { mode: avatarMode }),
+					h(Avatar, { mode: avatarMode, kind: AVATARS[avatarIndex % AVATARS.length].id }),
 					shift.onBreak
 						? h('span', { className: 'pd-break', title: breakHint() }, t('stat.onBreak'))
 						: null,
@@ -2183,6 +2233,8 @@ window.__ModuleLoader__.load({
 			PACKAGE_NAME: PACKAGE_NAME,
 			SIDEBAR_SLOT: SIDEBAR_SLOT,
 			Avatar: Avatar,
+			AVATARS: AVATARS,
+			drawAvatar: drawAvatar,
 			STORAGE_KEY: STORAGE_KEY,
 			ICON_PATHS: PATHS,
 			DICTIONARIES: DICTIONARIES,

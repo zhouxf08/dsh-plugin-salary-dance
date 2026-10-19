@@ -659,8 +659,40 @@ check('头像只用 currentColor', JSON.stringify((function () {
   })(svg);
   return out;
 })()), '[]');
-check('头像有循环动画', /@keyframes pd-dribble\{/.test(api.CSS) && /animation:pd-dribble \.9s/.test(api.CSS), 'true');
-check('午休时动画变慢', /\.pd-avatar\.slow \.ball,[\s\S]{0,80}animation-duration:3\.2s/.test(api.CSS), 'true');
+check('头像有循环动画', /@keyframes pd-bob\{/.test(api.CSS) && /animation:pd-bob \.45s/.test(api.CSS), 'true');
+check('动画比原来更快', /animation:pd-bob \.45s/.test(api.CSS), 'true');
+check('动作幅度更大', /translateY\(5px\)/.test(api.CSS) && /rotate\(-14deg\)/.test(api.CSS), 'true');
+// Character registry: adding one entry is all it takes to add a character.
+check('角色注册表有两个角色', api.AVATARS.length, 2);
+check('角色 id 可查', api.AVATARS.map((a) => a.id).join(','), 'dribble,burger');
+check('每个角色都能画出来', api.AVATARS.every((a) => a.draw().length > 3), 'true');
+check('运球角色有球', JSON.stringify(api.AVATARS[0].draw()).includes('moving ball'), 'true');
+check('吃汉堡角色有汉堡', JSON.stringify(api.AVATARS[1].draw()).includes('moving burger'), 'true');
+check('按 kind 取到对应角色', api.drawAvatar('burger').id, 'burger');
+check('未知 kind 回退到第一个', api.drawAvatar('nope').id, 'dribble');
+check('svg 标出当前角色', api.Avatar({ mode: 'work', kind: 'burger' }).props['data-kind'], 'burger');
+// Hover must actually change the rendered character.
+const before = render('2026-10-14T14:00:00', { monthlySalary: 8000 });
+const after = (function () {
+  const btn = nodeByClass(before, 'pd-strip-btn');
+  btn.props.onPointerEnter();
+  return renderKeepingState();
+})();
+const kindOf = (tree) => {
+  let found = null;
+  (function walk(node) {
+    if (found !== null || node === null || node === undefined) return;
+    if (Array.isArray(node)) { node.forEach(walk); return; }
+    if (typeof node !== 'object' || node.children === undefined) return;
+    if (node.type === api.Avatar) { found = node.props.kind; return; }
+    node.children.forEach(walk);
+  })(tree);
+  return found;
+};
+check('hover 前是运球', kindOf(before), 'dribble');
+check('hover 后换成另一个', kindOf(after), 'burger');
+check('状态条按钮绑了 hover', typeof nodeByClass(before, 'pd-strip-btn').props.onPointerEnter, 'function');
+check('午休时动画变慢', /\.pd-avatar\.slow \.ball,[\s\S]{0,120}animation-duration:1\.8s/.test(api.CSS), 'true');
 check('下班后动画暂停', /\.pd-avatar\.off \.ball,[\s\S]{0,80}animation-play-state:paused/.test(api.CSS), 'true');
 check('尊重 prefers-reduced-motion', /prefers-reduced-motion: reduce\)[\s\S]{0,80}\.pd-avatar \.ball/.test(api.CSS), 'true');
 
