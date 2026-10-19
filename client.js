@@ -547,6 +547,7 @@ window.__ModuleLoader__.load({
 .pd-strip-metrics > div{ display:flex; align-items:baseline; gap:4px; }
 .pd-strip-metrics .k{ font-size:9px; color:var(--dsw-alias-label-tertiary,#8a9099); }
 .pd-strip-metrics b{ font-size:10px; font-weight:600; font-variant-numeric:tabular-nums; }
+.pd-off{ color:var(--dsw-static-amber-600,#dd8629); font-weight:600; }
 .pd-strip-sub{
   display:flex; gap:10px; flex-wrap:wrap;
   font-size:9.5px; color:var(--dsw-alias-label-tertiary,#8a9099);
@@ -1119,6 +1120,26 @@ window.__ModuleLoader__.load({
 				}
 			},
 			{
+				id: 'lie',
+				label: '躺平',
+				// Shown only when the shift is over, so it is excluded from the click
+				// cycle: you do not choose to lie down while still on the clock.
+				offPose: true,
+				draw: function () {
+					return [
+						// head, resting on the ground
+						h('circle', { cx: 7.6, cy: 22.4, r: 3.0 }),
+						// body, flat
+						h('path', { d: 'M10.6 20.4 C13.6 19.6 18.2 19.6 21.2 20.4 L22.4 23.4 C22.7 24.2 22.2 24.9 21.4 25.0 L10.6 25.0 C9.8 24.9 9.3 24.2 9.6 23.4 Z' }),
+						// legs, kicked out
+						h('path', { d: 'M22.2 20.8 L27.4 22.2 C28.2 22.4 28.5 23.3 28.1 24.0 C27.7 24.7 26.9 24.9 26.1 24.7 L21.8 23.4 Z' }),
+						h('path', { d: 'M22.0 24.4 L26.6 26.4 C27.4 26.7 27.6 27.6 27.2 28.3 C26.8 28.9 26.0 29.1 25.3 28.8 L21.2 26.6 Z' }),
+						// one arm flung over the head
+						h('path', { d: 'M11.4 20.6 L8.2 17.0 C7.7 16.4 7.8 15.6 8.4 15.1 C9.0 14.7 9.8 14.8 10.3 15.4 L13.4 18.8 Z' })
+					];
+				}
+			},
+			{
 				id: 'burger',
 				label: '吃汉堡',
 				draw: function () {
@@ -1628,6 +1649,12 @@ window.__ModuleLoader__.load({
 			// The avatar is the at-a-glance version of the same fact the number tells:
 			// moving while you are being paid, slowing through lunch, still once you stop.
 			const avatarMode = !allowed || shift.after ? 'off' : shift.onBreak ? 'break' : 'work';
+			// Off the clock means lying down, whatever character was picked.
+			const offDuty = !allowed || shift.after;
+			const workAvatars = AVATARS.filter(function (item) { return item.offPose !== true; });
+			const avatarKind = offDuty
+				? 'lie'
+				: workAvatars[avatarIndex % workAvatars.length].id;
 			// A rest day serves nothing: the shift window is still solved (so the clock
 			// times stay meaningful) but nothing is counted against it. Without this the
 			// progress rail climbs through a Saturday as if the shift were running.
@@ -2043,16 +2070,18 @@ window.__ModuleLoader__.load({
 						'aria-label': t('action.swapAvatar'),
 						onClick: function (event) {
 							event.stopPropagation();
-							setAvatarIndex(function (index) { return (index + 1) % AVATARS.length; });
+							if (offDuty) return;   // already lying down
+							setAvatarIndex(function (index) { return (index + 1) % workAvatars.length; });
 						},
 						onKeyDown: function (event) {
 							if (event.key === 'Enter' || event.key === ' ') {
 								event.preventDefault();
 								event.stopPropagation();
-								setAvatarIndex(function (index) { return (index + 1) % AVATARS.length; });
+								if (offDuty) return;
+								setAvatarIndex(function (index) { return (index + 1) % workAvatars.length; });
 							}
 						}
-					}, h(Avatar, { mode: avatarMode, kind: AVATARS[avatarIndex % AVATARS.length].id })),
+					}, h(Avatar, { mode: avatarMode, kind: avatarKind })),
 					shift.onBreak
 						? h('span', { className: 'pd-break', title: breakHint() }, t('stat.onBreak'))
 						: null,
@@ -2062,7 +2091,12 @@ window.__ModuleLoader__.load({
 					? null
 					: h('div', { className: 'pd-strip-sub' },
 							h('span', null, t('stat.worked') + ' ' + served.hours + ' h ' + served.minutes + ' m'),
-							h('span', null, t('stat.remaining') + ' ' + remaining.hours + ' h ' + remaining.minutes + ' m')
+							// Once the shift is over there is nothing left to count down to,
+							// so the readout switches to a plain "you can go home" rather
+							// than a frozen 0 h 0 m.
+							offDuty && allowed
+								? h('span', { className: 'pd-off' }, t('stat.offWork'))
+								: h('span', null, t('stat.remaining') + ' ' + remaining.hours + ' h ' + remaining.minutes + ' m')
 						),
 				h('div', {
 					className: 'pd-mini-bar',
@@ -2098,6 +2132,7 @@ window.__ModuleLoader__.load({
 				'stat.rate': '时薪',
 				'stat.progress': '今日工作进度',
 				'stat.onBreak': '午休中',
+				'stat.offWork': '该下班了～',
 				'stat.onBreakHint': '午休时段不计入工作时长，{end} 后继续累积',
 				'unit.hour': '时',
 				'unit.days': '天',
@@ -2168,6 +2203,7 @@ window.__ModuleLoader__.load({
 				'stat.rate': 'Rate',
 				'stat.progress': "Today's work progress",
 				'stat.onBreak': 'On break',
+				'stat.offWork': 'Time to head home',
 				'stat.onBreakHint': 'The break does not count as worked time; accrual resumes at {end}',
 				'unit.hour': 'h',
 				'unit.days': 'days',
